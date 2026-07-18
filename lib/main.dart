@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'SW Cyclograpp',
+      title: 'RSW svarcOS',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         useMaterial3: true,
@@ -73,7 +73,7 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SW Cyclograpp'),
+        title: const Text('RSW svarcOS'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
         actions: [
@@ -124,7 +124,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 16),
 
           _buildParameterCard(
-            'Давление сжатия, бар',
+            'Давление/усилие сжатия электродов',
             'PRESSURE',
             _params.pressure,
             (val) {
@@ -146,7 +146,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 16),
 
           _buildParameterCard(
-            'Задержка проковки',
+            'Задержка до проковки',
             'FORGE DELAY',
             _params.forgeDelay.toDouble(),
             (val) {
@@ -161,7 +161,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Давление проковки, бар',
+            'Давление/усилие проковки',
             'FORG.PRESS.',
             _params.forgePressure,
             (val) {
@@ -193,7 +193,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Мощность предварительного подогрева, %',
+            'Мощность/ток предварительного подогрева',
             'PRE-POWER',
             _params.prePower.toDouble(),
             (val) {
@@ -208,7 +208,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Интервал между подогревом и сваркой',
+            'Пауза 1 — между подогревом и сваркой',
             'COLD 1',
             _params.cold1.toDouble(),
             (val) {
@@ -223,7 +223,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 16),
 
           _buildParameterCard(
-            'Время нарастания сварочного импульса',
+            'Время нарастания тока',
             'SLOPE UP',
             _params.slopeUp.toDouble(),
             (val) {
@@ -253,7 +253,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Мощность сварки, %',
+            'Мощность/ток сварки',
             'POWER',
             _params.power.toDouble(),
             (val) {
@@ -268,7 +268,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Количество импульсов',
+            'Число импульсов',
             'IMPULSE N.',
             _params.impulseN.toDouble(),
             (val) {
@@ -283,7 +283,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Интервал между импульсами',
+            'Пауза 2 — между импульсами',
             'COLD 2',
             _params.cold2.toDouble(),
             (val) {
@@ -298,7 +298,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 16),
 
           _buildParameterCard(
-            'Время спада сварочного импульса',
+            'Время спада тока',
             'SLOPE DOWN',
             _params.slopeDown.toDouble(),
             (val) {
@@ -313,7 +313,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Интервал между сваркой и последующей термообработкой',
+            'Пауза 3 — между сваркой и термообработкой',
             'COLD 3',
             _params.cold3.toDouble(),
             (val) {
@@ -328,7 +328,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 16),
 
           _buildParameterCard(
-            'Время последующей термообработки',
+            'Время отпуска',
             'POST-WELD.',
             _params.postWeld,
             (val) {
@@ -343,7 +343,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Мощность последующей термообработки, %',
+            'Мощность/ток отпуска',
             'POST-POWER',
             _params.postPower.toDouble(),
             (val) {
@@ -358,7 +358,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 16),
 
           _buildParameterCard(
-            'Время сжатия электродов после сварки',
+            'Время удержания',
             'HOLD TIME',
             _params.holdTime,
             (val) {
@@ -373,7 +373,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Пауза до следующего цикла',
+            'Пауза между циклами',
             'OFF TIME',
             _params.offTime,
             (val) {
