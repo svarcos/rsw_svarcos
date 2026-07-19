@@ -1,7 +1,10 @@
 // Модель данных для параметров сварочного цикла аппарата Tecna TE550
 // Содержит все 19 параметров, которые пользователь может настраивать
+// + новые поля для расчёта: материал, толщины, диаметр точки
 
 class WeldingParameters {
+  // ---- ОСНОВНЫЕ ПАРАМЕТРЫ СВАРОЧНОГО ЦИКЛА ----
+  
   // Время подхода электродов (первая ступень сжатия)
   // Диапазон: 00.5 – 99.5 циклов
   final double squeeze1;
@@ -74,7 +77,24 @@ class WeldingParameters {
   // Диапазон: 00.0 – 99.5 циклов
   final double offTime;
 
-  // Конструктор с обязательными параметрами
+  // ---- НОВЫЕ ПОЛЯ ДЛЯ РАСЧЁТА ----
+  
+  // Материал деталей (АМг6, Сталь 08кп и т.д.)
+  final String material;
+  
+  // Толщина верхней детали (меньшая), мм
+  // Диапазон: 1.0 – 4.0
+  final double thicknessTop;
+  
+  // Толщина нижней детали (большая), мм
+  // Диапазон: 1.0 – 4.0
+  final double thicknessBottom;
+  
+  // Диаметр литого ядра (точки), мм
+  // Расчётное значение + ручная корректировка
+  final double nuggetDiameter;
+
+  // ---- КОНСТРУКТОР ----
   const WeldingParameters({
     required this.squeeze1,
     required this.pressure,
@@ -94,9 +114,13 @@ class WeldingParameters {
     required this.postPower,
     required this.holdTime,
     required this.offTime,
+    this.material = 'АМг6',
+    this.thicknessTop = 1.0,
+    this.thicknessBottom = 1.0,
+    this.nuggetDiameter = 3.5,
   });
 
-  // Фабричный конструктор для создания параметров со значениями по умолчанию
+  // ---- ФАБРИЧНЫЙ КОНСТРУКТОР (значения по умолчанию) ----
   factory WeldingParameters.defaults() {
     return const WeldingParameters(
       squeeze1: 20.0,
@@ -117,11 +141,15 @@ class WeldingParameters {
       postPower: 50,
       holdTime: 5.0,
       offTime: 0.0,
+      material: 'АМг6',
+      thicknessTop: 1.0,
+      thicknessBottom: 1.0,
+      nuggetDiameter: 3.5,
     );
   }
 }
 
-// Расширение для создания копий объектов с измененными параметрами
+// ---- РАСШИРЕНИЕ ДЛЯ COPYWITH ----
 extension WeldingParametersExtension on WeldingParameters {
   WeldingParameters copyWith({
     double? squeeze1,
@@ -142,6 +170,10 @@ extension WeldingParametersExtension on WeldingParameters {
     int? postPower,
     double? holdTime,
     double? offTime,
+    String? material,
+    double? thicknessTop,
+    double? thicknessBottom,
+    double? nuggetDiameter,
   }) {
     return WeldingParameters(
       squeeze1: squeeze1 ?? this.squeeze1,
@@ -162,6 +194,10 @@ extension WeldingParametersExtension on WeldingParameters {
       postPower: postPower ?? this.postPower,
       holdTime: holdTime ?? this.holdTime,
       offTime: offTime ?? this.offTime,
+      material: material ?? this.material,
+      thicknessTop: thicknessTop ?? this.thicknessTop,
+      thicknessBottom: thicknessBottom ?? this.thicknessBottom,
+      nuggetDiameter: nuggetDiameter ?? this.nuggetDiameter,
     );
   }
 }

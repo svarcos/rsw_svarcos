@@ -1,12 +1,6 @@
 // ============================================================
 // main.dart
-// SW Cyclograpp v1.0 – финальная версия
-// Логика полностью соответствует принципам Tecna TE550:
-// – ТОК и УСИЛИЕ – два НЕЗАВИСИМЫХ процесса
-// – УСИЛИЕ моделирует реальную физику пневматики
-// – Общее время цикла определяется временем окончания цикла давления
-// – Ток меняется мгновенно (прямоугольные импульсы)
-// – FORG.PRESS. не может быть меньше PRESSURE
+// RSW svarcOS — главный экран приложения
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -108,6 +102,50 @@ class _MainScreenState extends State<MainScreen> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
+          // ---- ИСХОДНЫЕ ДАННЫЕ ----
+          _buildMaterialDropdown(),
+          const SizedBox(height: 16),
+
+          _buildThicknessField(
+            label: 'Толщина верхней детали (меньшая), мм',
+            value: _params.thicknessTop,
+            onChanged: (val) {
+              setState(() {
+                final newVal = val.clamp(1.0, _params.thicknessBottom);
+                _params = _params.copyWith(
+                  thicknessTop: newVal,
+                  thicknessBottom: _params.thicknessBottom,
+                );
+                _updateCyclogram();
+              });
+            },
+            min: 1.0,
+            max: _params.thicknessBottom,
+          ),
+          const SizedBox(height: 8),
+
+          _buildThicknessField(
+            label: 'Толщина нижней детали (большая), мм',
+            value: _params.thicknessBottom,
+            onChanged: (val) {
+              setState(() {
+                final newVal = val.clamp(_params.thicknessTop, 4.0);
+                _params = _params.copyWith(
+                  thicknessBottom: newVal,
+                  thicknessTop: _params.thicknessTop,
+                );
+                _updateCyclogram();
+              });
+            },
+            min: _params.thicknessTop,
+            max: 4.0,
+          ),
+          const SizedBox(height: 8),
+
+          _buildNuggetField(),
+          const SizedBox(height: 16),
+
+          // ---- РАСЧЁТНЫЕ ПАРАМЕТРЫ ----
           _buildParameterCard(
             'Время сжатия электродов',
             'SQUEEZE 1',
@@ -391,6 +429,150 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // ---- ИСХОДНЫЕ ДАННЫЕ ----
+  Widget _buildMaterialDropdown() {
+    final materials = ['АМг6', 'Сталь 08кп', 'Сталь 20', 'Алюминий АД1'];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: DropdownButtonFormField<String>(
+          decoration: const InputDecoration(
+            labelText: 'Материал',
+            border: OutlineInputBorder(),
+          ),
+          value: _params.material,
+          items: materials.map((m) {
+            return DropdownMenuItem(value: m, child: Text(m));
+          }).toList(),
+          onChanged: (val) {
+            setState(() {
+              _params = _params.copyWith(material: val!);
+              _updateCyclogram();
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThicknessField({
+    required String label,
+    required double value,
+    required Function(double) onChanged,
+    required double min,
+    required double max,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 80,
+              child: TextField(
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.all(4),
+                ),
+                controller: TextEditingController(text: value.toStringAsFixed(1)),
+                onChanged: (text) {
+                  final newVal = double.tryParse(text);
+                  if (newVal != null && newVal >= min && newVal <= max) {
+                    onChanged(newVal);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Slider(
+                value: value,
+                min: min,
+                max: max,
+                divisions: 30,
+                onChanged: onChanged,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNuggetField() {
+    // Расчёт по ГОСТ 15878-79: d = 1.75 + 2.5 * s
+    // Округление вверх до целого (шаг 1 мм)
+    final calculated = (1.75 + 2.5 * _params.thicknessTop).ceilToDouble();
+    final currentValue = _params.nuggetDiameter;
+
+    // Диапазон: от расчётного до 12 мм (шаг 1 мм)
+    final minValue = calculated.clamp(4.0, 12.0);
+    const maxValue = 12.0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Диаметр точки, мм',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 80,
+              child: TextField(
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.all(4),
+                ),
+                controller: TextEditingController(
+                  text: currentValue.toStringAsFixed(0).replaceFirst('.', ','),
+                ),
+                onChanged: (text) {
+                  final normalized = text.replaceFirst(',', '.');
+                  final newVal = double.tryParse(normalized);
+                  if (newVal != null && newVal >= minValue && newVal <= maxValue) {
+                    setState(() {
+                      _params = _params.copyWith(nuggetDiameter: newVal);
+                      _updateCyclogram();
+                    });
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Slider(
+                value: currentValue.clamp(minValue, maxValue),
+                min: minValue,
+                max: maxValue,
+                divisions: 8,
+                onChanged: (val) {
+                  setState(() {
+                    _params = _params.copyWith(nuggetDiameter: val);
+                    _updateCyclogram();
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---- РАСЧЁТНЫЕ ПАРАМЕТРЫ ----
   Widget _buildParameterCard(
     String label,
     String code,
