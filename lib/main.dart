@@ -6,6 +6,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'data/models/welding_parameters.dart';
+import 'data/models/calculated_parameters.dart';
+import 'domain/usecases/calculate_parameters_usecase.dart';
 
 void main() {
   runApp(const MyApp());
@@ -58,6 +60,33 @@ class _MainScreenState extends State<MainScreen> {
   void _resetParameters() {
     setState(() {
       _params = WeldingParameters.defaults();
+      _updateCyclogram();
+    });
+  }
+
+  void _applyCalculatedParameters(CalculatedParameters result) {
+    setState(() {
+      // PRESSURE (сварочное давление)
+      final pressure = result.weldingForce;
+
+      // FORG.PRESS. (давление проковки) — должно быть >= PRESSURE
+      final forgePressure = result.forgeTime > 0 
+          ? result.weldingForce * 1.5 
+          : result.weldingForce;
+
+      // WELD TIME — уже в циклах, берём как есть
+      final weldCycles = result.weldingTime;
+
+      // FORGE DELAY — уже в циклах, берём как есть
+      final forgeDelayCycles = result.forgeTime;
+
+      _params = _params.copyWith(
+        pressure: pressure,
+        forgePressure: forgePressure,
+        weld: weldCycles.clamp(0.5, 99.5),
+        forgeDelay: forgeDelayCycles.toInt().clamp(0, 99),
+      );
+      
       _updateCyclogram();
     });
   }
@@ -143,6 +172,44 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildNuggetField(),
+          const SizedBox(height: 16),
+
+          // ---- КНОПКА РАССЧИТАТЬ ----
+          ElevatedButton(
+            onPressed: () {
+              try {
+                final useCase = CalculateParametersUseCase();
+                final result = useCase(
+                  materialName: _params.material,
+                  thickness: _params.thicknessTop,
+                );
+                _applyCalculatedParameters(result);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Параметры рассчитаны и применены'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('❌ Ошибка: $e'),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade700,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              minimumSize: const Size(double.infinity, 50),
+            ),
+            child: const Text(
+              'Рассчитать',
+              style: TextStyle(fontSize: 16, color: Colors.white),
+            ),
+          ),
           const SizedBox(height: 16),
 
           // ---- РАСЧЁТНЫЕ ПАРАМЕТРЫ ----
