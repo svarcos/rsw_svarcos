@@ -1,6 +1,6 @@
 // Модель данных для параметров сварочного цикла аппарата Tecna TE550
 // Содержит все 19 параметров, которые пользователь может настраивать
-// + новые поля для расчёта: материал, толщины, диаметр точки
+// + новые поля для расчёта: материал, толщины, диаметр точки, рабочий ход электродов
 
 class WeldingParameters {
   // ---- ОСНОВНЫЕ ПАРАМЕТРЫ СВАРОЧНОГО ЦИКЛА ----
@@ -83,16 +83,20 @@ class WeldingParameters {
   final String material;
   
   // Толщина верхней детали (меньшая), мм
-  // Диапазон: 1.0 – 4.0
+  // Диапазон: 0.5 – 3.0
   final double thicknessTop;
   
   // Толщина нижней детали (большая), мм
-  // Диапазон: 1.0 – 4.0
+  // Диапазон: 0.5 – 3.0
   final double thicknessBottom;
   
   // Диаметр литого ядра (точки), мм
-  // Расчётное значение + ручная корректировка
+  // Расчётное значение, отображается только для информации
   final double nuggetDiameter;
+
+  // Рабочий ход электродов, мм
+  // Диапазон: 5 – 50 мм, шаг 5 мм
+  final double stroke;
 
   // ---- КОНСТРУКТОР ----
   const WeldingParameters({
@@ -115,9 +119,10 @@ class WeldingParameters {
     required this.holdTime,
     required this.offTime,
     this.material = 'АМг6',
-    this.thicknessTop = 1.0,
-    this.thicknessBottom = 1.0,
+    this.thicknessTop = 0.5,
+    this.thicknessBottom = 0.5,
     this.nuggetDiameter = 3.5,
+    this.stroke = 20.0,
   });
 
   // ---- ФАБРИЧНЫЙ КОНСТРУКТОР (значения по умолчанию) ----
@@ -142,9 +147,10 @@ class WeldingParameters {
       holdTime: 5.0,
       offTime: 0.0,
       material: 'АМг6',
-      thicknessTop: 1.0,
-      thicknessBottom: 1.0,
+      thicknessTop: 0.5,
+      thicknessBottom: 0.5,
       nuggetDiameter: 3.5,
+      stroke: 20.0,
     );
   }
 }
@@ -174,6 +180,7 @@ extension WeldingParametersExtension on WeldingParameters {
     double? thicknessTop,
     double? thicknessBottom,
     double? nuggetDiameter,
+    double? stroke,
   }) {
     return WeldingParameters(
       squeeze1: squeeze1 ?? this.squeeze1,
@@ -198,6 +205,7 @@ extension WeldingParametersExtension on WeldingParameters {
       thicknessTop: thicknessTop ?? this.thicknessTop,
       thicknessBottom: thicknessBottom ?? this.thicknessBottom,
       nuggetDiameter: nuggetDiameter ?? this.nuggetDiameter,
+      stroke: stroke ?? this.stroke,
     );
   }
 }

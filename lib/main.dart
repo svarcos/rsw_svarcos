@@ -8,6 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'data/models/welding_parameters.dart';
 import 'data/models/calculated_parameters.dart';
 import 'domain/usecases/calculate_parameters_usecase.dart';
+import 'data/datasources/machine_specs.dart';
 
 void main() {
   runApp(const MyApp());
@@ -66,25 +67,17 @@ class _MainScreenState extends State<MainScreen> {
 
   void _applyCalculatedParameters(CalculatedParameters result) {
     setState(() {
-      // PRESSURE (сварочное давление)
-      final pressure = result.weldingForce;
-
-      // FORG.PRESS. (давление проковки) — должно быть >= PRESSURE
-      final forgePressure = result.forgeTime > 0 
-          ? result.weldingForce * 1.5 
-          : result.weldingForce;
-
-      // WELD TIME — уже в циклах, берём как есть
-      final weldCycles = result.weldingTime;
-
-      // FORGE DELAY — уже в циклах, берём как есть
-      final forgeDelayCycles = result.forgeTime;
-
       _params = _params.copyWith(
-        pressure: pressure,
-        forgePressure: forgePressure,
-        weld: weldCycles.clamp(0.5, 99.5),
-        forgeDelay: forgeDelayCycles.toInt().clamp(0, 99),
+        power: result.power.toInt().clamp(5, 99),
+        weld: result.weld.clamp(0.5, 99.5),
+        pressure: result.pressure.clamp(0.5, 10.0),
+        squeeze1: result.squeeze1.clamp(0.5, 99.5),
+        forgePressure: result.forgePressure.clamp(0, 10.0),
+        forgeDelay: result.forgeDelay.toInt().clamp(0, 99),
+        cold3: result.cold3.toInt().clamp(0, 50),
+        postWeld: result.postWeld.clamp(0, 99.5),
+        postPower: result.postPower.toInt().clamp(5, 99),
+        holdTime: result.holdTime.clamp(0.5, 99.5),
       );
       
       _updateCyclogram();
@@ -140,7 +133,7 @@ class _MainScreenState extends State<MainScreen> {
             value: _params.thicknessTop,
             onChanged: (val) {
               setState(() {
-                final newVal = val.clamp(1.0, _params.thicknessBottom);
+                final newVal = val.clamp(0.5, _params.thicknessBottom);
                 _params = _params.copyWith(
                   thicknessTop: newVal,
                   thicknessBottom: _params.thicknessBottom,
@@ -148,7 +141,7 @@ class _MainScreenState extends State<MainScreen> {
                 _updateCyclogram();
               });
             },
-            min: 1.0,
+            min: 0.5,
             max: _params.thicknessBottom,
           ),
           const SizedBox(height: 8),
@@ -158,7 +151,7 @@ class _MainScreenState extends State<MainScreen> {
             value: _params.thicknessBottom,
             onChanged: (val) {
               setState(() {
-                final newVal = val.clamp(_params.thicknessTop, 4.0);
+                final newVal = val.clamp(_params.thicknessTop, 3.0);
                 _params = _params.copyWith(
                   thicknessBottom: newVal,
                   thicknessTop: _params.thicknessTop,
@@ -167,8 +160,11 @@ class _MainScreenState extends State<MainScreen> {
               });
             },
             min: _params.thicknessTop,
-            max: 4.0,
+            max: 3.0,
           ),
+          const SizedBox(height: 8),
+
+          _buildStrokeField(),
           const SizedBox(height: 8),
 
           _buildNuggetField(),
@@ -180,8 +176,8 @@ class _MainScreenState extends State<MainScreen> {
               try {
                 final useCase = CalculateParametersUseCase();
                 final result = useCase(
-                  materialName: _params.material,
                   thickness: _params.thicknessTop,
+                  stroke: _params.stroke,
                 );
                 _applyCalculatedParameters(result);
                 
@@ -388,7 +384,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Пауза 2 — между импульсами',
+            'Пауза 2 — между сварочными импульсами',
             'COLD 2',
             _params.cold2.toDouble(),
             (val) {
@@ -418,7 +414,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Пауза 3 — между сваркой и термообработкой',
+            'Пауза 3 — между сваркой и операцией после',
             'COLD 3',
             _params.cold3.toDouble(),
             (val) {
@@ -433,7 +429,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 16),
 
           _buildParameterCard(
-            'Время отпуска',
+            'Время операции после сварки',
             'POST-WELD.',
             _params.postWeld,
             (val) {
@@ -448,7 +444,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildParameterCard(
-            'Мощность/ток отпуска',
+            'Мощность/ток после сварки',
             'POST-POWER',
             _params.postPower.toDouble(),
             (val) {
@@ -463,7 +459,7 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 16),
 
           _buildParameterCard(
-            'Время удержания',
+            'Время удержания усилия/давления',
             'HOLD TIME',
             _params.holdTime,
             (val) {
@@ -498,7 +494,7 @@ class _MainScreenState extends State<MainScreen> {
 
   // ---- ИСХОДНЫЕ ДАННЫЕ ----
   Widget _buildMaterialDropdown() {
-    final materials = ['АМг6', 'Сталь 08кп', 'Сталь 20', 'Алюминий АД1'];
+    final materials = ['АМг6', 'Сталь 20', 'Алюминий АД1'];
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -535,7 +531,10 @@ class _MainScreenState extends State<MainScreen> {
         child: Row(
           children: [
             Expanded(
-              child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             const SizedBox(width: 16),
             SizedBox(
@@ -547,9 +546,12 @@ class _MainScreenState extends State<MainScreen> {
                   border: OutlineInputBorder(),
                   contentPadding: EdgeInsets.all(4),
                 ),
-                controller: TextEditingController(text: value.toStringAsFixed(1)),
+                controller: TextEditingController(
+                  text: value.toStringAsFixed(1).replaceFirst('.', ','),
+                ),
                 onChanged: (text) {
-                  final newVal = double.tryParse(text);
+                  final normalized = text.replaceFirst(',', '.');
+                  final newVal = double.tryParse(normalized);
                   if (newVal != null && newVal >= min && newVal <= max) {
                     onChanged(newVal);
                   }
@@ -562,7 +564,7 @@ class _MainScreenState extends State<MainScreen> {
                 value: value,
                 min: min,
                 max: max,
-                divisions: 30,
+                divisions: 50,
                 onChanged: onChanged,
               ),
             ),
@@ -572,15 +574,11 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildNuggetField() {
-    // Расчёт по ГОСТ 15878-79: d = 1.75 + 2.5 * s
-    // Округление вверх до целого (шаг 1 мм)
-    final calculated = (1.75 + 2.5 * _params.thicknessTop).ceilToDouble();
-    final currentValue = _params.nuggetDiameter;
-
-    // Диапазон: от расчётного до 12 мм (шаг 1 мм)
-    final minValue = calculated.clamp(4.0, 12.0);
-    const maxValue = 12.0;
+  Widget _buildStrokeField() {
+    final value = _params.stroke;
+    const minValue = 5.0;
+    const maxValue = 50.0;
+    const step = 5.0;
 
     return Card(
       child: Padding(
@@ -589,7 +587,7 @@ class _MainScreenState extends State<MainScreen> {
           children: [
             const Expanded(
               child: Text(
-                'Диаметр точки, мм',
+                'Рабочий ход электродов, мм',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -604,14 +602,14 @@ class _MainScreenState extends State<MainScreen> {
                   contentPadding: EdgeInsets.all(4),
                 ),
                 controller: TextEditingController(
-                  text: currentValue.toStringAsFixed(0).replaceFirst('.', ','),
+                  text: value.toInt().toString(),
                 ),
                 onChanged: (text) {
-                  final normalized = text.replaceFirst(',', '.');
-                  final newVal = double.tryParse(normalized);
+                  final newVal = double.tryParse(text);
                   if (newVal != null && newVal >= minValue && newVal <= maxValue) {
+                    final stepped = (newVal / step).roundToDouble() * step;
                     setState(() {
-                      _params = _params.copyWith(nuggetDiameter: newVal);
+                      _params = _params.copyWith(stroke: stepped);
                       _updateCyclogram();
                     });
                   }
@@ -621,17 +619,43 @@ class _MainScreenState extends State<MainScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Slider(
-                value: currentValue.clamp(minValue, maxValue),
+                value: value,
                 min: minValue,
                 max: maxValue,
-                divisions: 8,
+                divisions: ((maxValue - minValue) / step).toInt(),
                 onChanged: (val) {
+                  final stepped = (val / step).roundToDouble() * step;
                   setState(() {
-                    _params = _params.copyWith(nuggetDiameter: val);
+                    _params = _params.copyWith(stroke: stepped);
                     _updateCyclogram();
                   });
                 },
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNuggetField() {
+    final calculated = ((3 * _params.thicknessTop + 2) * 0.9).ceilToDouble();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Диаметр точки, мм',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              calculated.toStringAsFixed(0),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -695,9 +719,12 @@ class _MainScreenState extends State<MainScreen> {
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.all(4),
                     ),
-                    controller: TextEditingController(text: value.toStringAsFixed(1)),
+                    controller: TextEditingController(
+                      text: value.toStringAsFixed(1).replaceFirst('.', ','),
+                    ),
                     onChanged: (text) {
-                      final newValue = double.tryParse(text);
+                      final normalized = text.replaceFirst(',', '.');
+                      final newValue = double.tryParse(normalized);
                       if (newValue != null && newValue >= min && newValue <= max) {
                         onChanged(newValue);
                       }
@@ -730,6 +757,9 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
 
+    // Масштабирование давления для правой шкалы (0–10 бар → 0–100)
+    final scaledForceSpots = forceSpots.map((s) => FlSpot(s.x, s.y * 10)).toList();
+
     return Scaffold(
       body: Column(
         children: [
@@ -746,7 +776,7 @@ class _MainScreenState extends State<MainScreen> {
                     color: Colors.blue.shade100,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text('Всего циклов: ${_calculateTotalCycleTime().toStringAsFixed(0)}'),
+                  child: Text('Всего импульсов: ${_calculateTotalCycleTime().toStringAsFixed(0)}'),
                 ),
               ],
             ),
@@ -766,6 +796,7 @@ class _MainScreenState extends State<MainScreen> {
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 40,
+                        interval: 10,
                         getTitlesWidget: (value, meta) {
                           return Text('${value.toInt()}%');
                         },
@@ -775,8 +806,9 @@ class _MainScreenState extends State<MainScreen> {
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 40,
+                        interval: 10,
                         getTitlesWidget: (value, meta) {
-                          final barValue = (value / 10).roundToDouble();
+                          final barValue = (value / 100 * 10).roundToDouble();
                           return Text(barValue.toStringAsFixed(0));
                         },
                       ),
@@ -811,7 +843,7 @@ class _MainScreenState extends State<MainScreen> {
                       dotData: FlDotData(show: false),
                     ),
                     LineChartBarData(
-                      spots: forceSpots.map((s) => FlSpot(s.x, s.y * 10)).toList(),
+                      spots: scaledForceSpots,
                       isCurved: false,
                       color: Colors.red,
                       barWidth: 2,
@@ -891,165 +923,148 @@ class _MainScreenState extends State<MainScreen> {
 
   // ==================== ГЕНЕРАЦИЯ ЦИКЛОГРАММЫ ====================
   Map<String, List<FlSpot>> _generateCyclogramData() {
-    final totalCycleTime = _calculateTotalCycleTime();
+    List<FlSpot> currentSpots = [];
+    List<FlSpot> forceSpots = [];
+
     final pressureValue = _params.pressure;
     final forgePressureValue = _params.forgePressure;
     final squeeze1 = _params.squeeze1;
-
-    final timeToReachPressure = 10 + pressureValue;
-    
-    double weldEndTime = squeeze1;
-    if (_params.preWeld > 0) weldEndTime += _params.preWeld + _params.cold1;
-    weldEndTime += _params.slopeUp;
-    for (int i = 0; i < _params.impulseN; i++) {
-      weldEndTime += _params.weld;
-      if (i < _params.impulseN - 1) weldEndTime += _params.cold2;
-    }
-    weldEndTime += _params.slopeDown + _params.cold3;
-    if (_params.postWeld > 0) weldEndTime += _params.postWeld;
-    
-    final forgeEndTime = squeeze1 + _params.forgeDelay;
-    final holdEndTime = weldEndTime + _params.holdTime;
     final isForgeActive = (_params.forgeDelay > 0 && _params.forgePressure > 0);
-    final forgeRiseEndTime = forgeEndTime + forgePressureValue;
-    final decayEndTime = holdEndTime + (isForgeActive ? forgePressureValue : pressureValue);
-    final finalTime = decayEndTime + _params.offTime;
 
-    // ---- ФУНКЦИЯ РАСЧЁТА ТОКА ----
-    List<FlSpot> calculateCurrentSpots() {
-      List<FlSpot> spots = [];
-      
-      spots.add(FlSpot(0, 0));
-      spots.add(FlSpot(squeeze1, 0));
-      
-      double currentTime = squeeze1;
-      
-      if (_params.preWeld > 0 && _params.prePower > 0) {
-        final prePower = _params.prePower.toDouble();
-        spots.add(FlSpot(currentTime, prePower));
-        currentTime += _params.preWeld;
-        spots.add(FlSpot(currentTime, prePower));
-        spots.add(FlSpot(currentTime, 0));
-        
-        currentTime += _params.cold1;
-        spots.add(FlSpot(currentTime, 0));
-      }
-      
-      final powerValue = _params.power.toDouble();
-      for (int i = 0; i < _params.impulseN; i++) {
-        if (_params.slopeUp > 0) {
-          final slopeStart = currentTime;
-          final slopeEnd = currentTime + _params.slopeUp;
-          final steps = 10;
-          for (int j = 0; j <= steps; j++) {
-            final fraction = j / steps;
-            final t = slopeStart + _params.slopeUp * fraction;
-            final value = powerValue * fraction;
-            spots.add(FlSpot(t, value));
-          }
-          currentTime = slopeEnd;
-        } else {
-          spots.add(FlSpot(currentTime, powerValue));
-        }
-        
-        final weldStart = currentTime;
-        final weldEnd = currentTime + _params.weld;
-        spots.add(FlSpot(weldStart, powerValue));
-        spots.add(FlSpot(weldEnd, powerValue));
-        currentTime = weldEnd;
-        
-        if (i < _params.impulseN - 1) {
-          spots.add(FlSpot(currentTime, 0));
-          currentTime += _params.cold2;
-          spots.add(FlSpot(currentTime, 0));
-        }
-      }
-      
-      if (_params.slopeDown > 0) {
-        final slopeStart = currentTime;
-        final slopeEnd = currentTime + _params.slopeDown;
-        final steps = 10;
-        for (int j = 0; j <= steps; j++) {
-          final fraction = j / steps;
-          final t = slopeStart + _params.slopeDown * fraction;
-          final value = powerValue * (1 - fraction);
-          spots.add(FlSpot(t, value));
-        }
-        currentTime = slopeEnd;
-      } else {
-        spots.add(FlSpot(currentTime, 0));
-      }
-      
-      currentTime += _params.cold3;
-      spots.add(FlSpot(currentTime, 0));
-      
-      if (_params.postWeld > 0 && _params.postPower > 0) {
-        final postPower = _params.postPower.toDouble();
-        spots.add(FlSpot(currentTime, postPower));
-        currentTime += _params.postWeld;
-        spots.add(FlSpot(currentTime, postPower));
-        spots.add(FlSpot(currentTime, 0));
-      }
-      
-      spots.add(FlSpot(finalTime, 0));
-      return spots;
+    final pRate = MachineSpecs.pressureRiseRate;
+    final vElectrode = MachineSpecs.electrodeVelocity;
+
+    // ---- 1. ВСПОМОГАТЕЛЬНЫЕ ВРЕМЕННЫЕ ТОЧКИ ----
+    final tTouch = _params.stroke / vElectrode;
+    final tPressureRise = pressureValue / pRate;
+    final tSqueeze = squeeze1;
+    final tWeldStart = squeeze1;
+    final tWeldEnd = tWeldStart + _params.weld;
+    final tSlopeDown = _params.slopeDown;
+    final tCold3 = tWeldEnd + (tSlopeDown > 0 ? tSlopeDown : 0) + _params.cold3;
+    final tPostWeldStart = tCold3;
+    final tPostWeldEnd = tPostWeldStart + _params.postWeld;
+
+    final tForgeRise = (forgePressureValue - pressureValue) / pRate;
+    final tDecay = (isForgeActive ? forgePressureValue : pressureValue) / pRate;
+
+    final tForgeStart = squeeze1 + _params.forgeDelay;
+    final tForgeEnd = tForgeStart + tForgeRise;
+    final tHoldStart = tPostWeldEnd;
+    final tHoldEnd = tHoldStart + _params.holdTime;
+    final tDecayEnd = tHoldEnd + tDecay;
+    final totalTime = tDecayEnd + _params.offTime;
+
+    // ---- 2. ГЕНЕРАЦИЯ ТОЧЕК ТОКА ----
+    void addCurrentPoint(double time, double value) {
+      currentSpots.add(FlSpot(time, value));
     }
 
-    // ---- ФУНКЦИЯ РАСЧЁТА УСИЛИЯ ----
-    List<FlSpot> calculateForceSpots() {
-      List<FlSpot> spots = [];
+    // Начало
+    addCurrentPoint(0, 0);
+
+    // Скачок в начале: 0 → POWER (две точки с одинаковым временем)
+    if (_params.preWeld > 0 && _params.prePower > 0) {
+      // PRE-WELD
+      final preWeldStart = tSqueeze;
+      final preWeldEnd = preWeldStart + _params.preWeld;
       
-      spots.add(FlSpot(0, 0));
-      spots.add(FlSpot(10, 0));
+      // Начало PRE-WELD: 0 → PRE-POWER
+      addCurrentPoint(preWeldStart, 0);
+      addCurrentPoint(preWeldStart, _params.prePower.toDouble());
       
-      final steps = 10;
+      // Конец PRE-WELD: PRE-POWER → 0
+      addCurrentPoint(preWeldEnd, _params.prePower.toDouble());
+      addCurrentPoint(preWeldEnd, 0);
+      
+      // COLD 1
+      final cold1Start = preWeldEnd;
+      final cold1End = cold1Start + _params.cold1;
+      if (_params.cold1 > 0) {
+        addCurrentPoint(cold1Start, 0);
+        addCurrentPoint(cold1End, 0);
+      }
+    }
+
+    // Начало WELD: 0 → POWER
+    addCurrentPoint(tWeldStart, 0);
+    addCurrentPoint(tWeldStart, _params.power.toDouble());
+
+    // Конец WELD: POWER → 0
+    addCurrentPoint(tWeldEnd, _params.power.toDouble());
+    addCurrentPoint(tWeldEnd, 0);
+
+    // COLD 3
+    final cold3Start = tWeldEnd;
+    final cold3End = cold3Start + _params.cold3;
+    addCurrentPoint(cold3Start, 0);
+    addCurrentPoint(cold3End, 0);
+
+    // POST-WELD (если есть)
+    if (_params.postWeld > 0 && _params.postPower > 0) {
+      // Начало POST-WELD: 0 → POST-POWER
+      addCurrentPoint(tPostWeldStart, 0);
+      addCurrentPoint(tPostWeldStart, _params.postPower.toDouble());
+      
+      // Конец POST-WELD: POST-POWER → 0
+      addCurrentPoint(tPostWeldEnd, _params.postPower.toDouble());
+      addCurrentPoint(tPostWeldEnd, 0);
+    }
+
+    // Остальные точки (ток уже 0)
+    addCurrentPoint(tHoldStart, 0);
+    addCurrentPoint(tHoldEnd, 0);
+    addCurrentPoint(tDecayEnd, 0);
+    addCurrentPoint(totalTime, 0);
+
+    // ---- 3. ГЕНЕРАЦИЯ ТОЧЕК ДАВЛЕНИЯ ----
+    void addForcePoint(double time, double value) {
+      forceSpots.add(FlSpot(time, value));
+    }
+
+    addForcePoint(0, 0);
+
+    // Подъём давления от 0 до PRESSURE
+    final steps = 10;
+    for (int i = 0; i <= steps; i++) {
+      final fraction = i / steps;
+      final t = tTouch + tPressureRise * fraction;
+      final value = pressureValue * fraction;
+      addForcePoint(t, value);
+    }
+    addForcePoint(tSqueeze, pressureValue);
+
+    if (!isForgeActive) {
+      // Без ковки
+      addForcePoint(tHoldStart, pressureValue);
       for (int i = 0; i <= steps; i++) {
         final fraction = i / steps;
-        final t = 10 + (timeToReachPressure - 10) * fraction;
-        final value = pressureValue * fraction;
-        spots.add(FlSpot(t, value));
+        final t = tHoldStart + tDecay * fraction;
+        final value = pressureValue * (1 - fraction);
+        addForcePoint(t, value);
       }
-      
-      spots.add(FlSpot(timeToReachPressure, pressureValue));
-      spots.add(FlSpot(squeeze1, pressureValue));
-      
-      if (!isForgeActive) {
-        spots.add(FlSpot(holdEndTime, pressureValue));
-        
-        for (int i = 0; i <= steps; i++) {
-          final fraction = i / steps;
-          final t = holdEndTime + pressureValue * fraction;
-          final value = pressureValue * (1 - fraction);
-          spots.add(FlSpot(t, value));
-        }
-        spots.add(FlSpot(decayEndTime, 0));
-      } else {
-        spots.add(FlSpot(forgeEndTime, pressureValue));
-        
-        for (int i = 0; i <= steps; i++) {
-          final fraction = i / steps;
-          final t = forgeEndTime + forgePressureValue * fraction;
-          final value = pressureValue + (forgePressureValue - pressureValue) * fraction;
-          spots.add(FlSpot(t, value));
-        }
-        spots.add(FlSpot(forgeRiseEndTime, forgePressureValue));
-        spots.add(FlSpot(holdEndTime, forgePressureValue));
-        
-        for (int i = 0; i <= steps; i++) {
-          final fraction = i / steps;
-          final t = holdEndTime + forgePressureValue * fraction;
-          final value = forgePressureValue * (1 - fraction);
-          spots.add(FlSpot(t, value));
-        }
-        spots.add(FlSpot(decayEndTime, 0));
+      addForcePoint(tDecayEnd, 0);
+    } else {
+      // С ковкой
+      addForcePoint(tForgeStart, pressureValue);
+      for (int i = 0; i <= steps; i++) {
+        final fraction = i / steps;
+        final t = tForgeStart + tForgeRise * fraction;
+        final value = pressureValue + (forgePressureValue - pressureValue) * fraction;
+        addForcePoint(t, value);
       }
-      
-      spots.add(FlSpot(finalTime, 0));
-      return spots;
+      addForcePoint(tForgeEnd, forgePressureValue);
+      addForcePoint(tHoldStart, forgePressureValue);
+      for (int i = 0; i <= steps; i++) {
+        final fraction = i / steps;
+        final t = tHoldStart + tDecay * fraction;
+        final value = forgePressureValue * (1 - fraction);
+        addForcePoint(t, value);
+      }
+      addForcePoint(tDecayEnd, 0);
     }
 
-    List<FlSpot> currentSpots = calculateCurrentSpots();
-    List<FlSpot> forceSpots = calculateForceSpots();
+    addForcePoint(totalTime, 0);
 
     return {
       'current': currentSpots,

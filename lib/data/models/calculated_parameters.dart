@@ -1,45 +1,114 @@
 /// Модель рассчитанных параметров сварочного цикла
+/// Содержит все параметры, необходимые для построения циклограммы
+/// и передачи данных из расчётного модуля в UI
+
 class CalculatedParameters {
-  final String material;
+  // ---- ИСХОДНЫЕ ДАННЫЕ ----
+  
+  /// Толщина детали, мм
   final double thickness;
+  
+  /// Рабочий ход электродов, мм (вводится пользователем)
+  final double stroke;
+  
+  // ---- ТАБЛИЧНЫЕ ПАРАМЕТРЫ (из справочника) ----
+  
+  /// POWER, % — сварочный ток в процентах
+  final double power;
+  
+  /// WELD, имп — время сварки в импульсах
+  final double weld;
+  
+  /// tков, имп — время ковки в импульсах
+  final double forgeTimeTable;
+  
+  // ---- РАССЧИТАННЫЕ ПАРАМЕТРЫ ----
+  
+  /// Диаметр литого ядра, мм
   final double nuggetDiameter;
-  final double weldingForce;
-  final double weldingCurrent;
-  final double weldingTime;
-  final double squeezeTime;
-  final double forgeTime;
+  
+  /// PRESSURE, бар — давление/усилие сжатия электродов
+  final double pressure;
+  
+  /// SQUEEZE 1, имп — время сжатия электродов
+  final double squeeze1;
+  
+  /// FORG.PRESS., бар — давление/усилие ковки
+  final double forgePressure;
+  
+  /// FORGE DELAY, имп — задержка включения давления/усилия ковки
+  final double forgeDelay;
+  
+  /// COLD 3, имп — пауза между сваркой и дополнительной операцией
+  final double cold3;
+  
+  /// POST-WELD, имп — время дополнительной операции после сварки
+  final double postWeld;
+  
+  /// POST-POWER, % — мощность/ток дополнительной операции после сварки
+  final double postPower;
+  
+  /// HOLD TIME, имп — время удержания усилия/давления ковки
+  final double holdTime;
 
-  final double? preheatCurrent;
-  final double? preheatTime;
-  final double? pause1;
-  final int? impulseCount;
-  final double? pause2;
-  final double? slopeUp;
-  final double? slopeDown;
-  final double? postHeatCurrent;
-  final double? postHeatTime;
-  final double? pause3;
-  final double cyclePause;
-
+  // ---- КОНСТРУКТОР ----
+  
   const CalculatedParameters({
-    required this.material,
     required this.thickness,
+    required this.stroke,
+    required this.power,
+    required this.weld,
+    required this.forgeTimeTable,
     required this.nuggetDiameter,
-    required this.weldingForce,
-    required this.weldingCurrent,
-    required this.weldingTime,
-    required this.squeezeTime,
-    required this.forgeTime,
-    this.preheatCurrent,
-    this.preheatTime,
-    this.pause1,
-    this.impulseCount,
-    this.pause2,
-    this.slopeUp,
-    this.slopeDown,
-    this.postHeatCurrent,
-    this.postHeatTime,
-    this.pause3,
-    this.cyclePause = 0.5,
+    required this.pressure,
+    required this.squeeze1,
+    required this.forgePressure,
+    required this.forgeDelay,
+    required this.cold3,
+    required this.postWeld,
+    required this.postPower,
+    required this.holdTime,
   });
+
+  // ---- ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ----
+  
+  /// Возвращает карту параметров для удобного отображения в UI
+  Map<String, dynamic> toMap() {
+    return {
+      'thickness': thickness,
+      'stroke': stroke,
+      'power': power,
+      'weld': weld,
+      'forgeTimeTable': forgeTimeTable,
+      'nuggetDiameter': nuggetDiameter,
+      'pressure': pressure,
+      'squeeze1': squeeze1,
+      'forgePressure': forgePressure,
+      'forgeDelay': forgeDelay,
+      'cold3': cold3,
+      'postWeld': postWeld,
+      'postPower': postPower,
+      'holdTime': holdTime,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'CalculatedParameters(\n'
+        '  thickness: $thickness,\n'
+        '  stroke: $stroke,\n'
+        '  power: $power,\n'
+        '  weld: $weld,\n'
+        '  forgeTimeTable: $forgeTimeTable,\n'
+        '  nuggetDiameter: $nuggetDiameter,\n'
+        '  pressure: $pressure,\n'
+        '  squeeze1: $squeeze1,\n'
+        '  forgePressure: $forgePressure,\n'
+        '  forgeDelay: $forgeDelay,\n'
+        '  cold3: $cold3,\n'
+        '  postWeld: $postWeld,\n'
+        '  postPower: $postPower,\n'
+        '  holdTime: $holdTime,\n'
+        ')';
+  }
 }

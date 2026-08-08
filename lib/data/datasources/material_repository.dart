@@ -1,62 +1,96 @@
 /// Справочник материалов для расчёта параметров точечной сварки
-/// Данные по ГОСТ 15878-79 и отраслевым нормалям
+/// Данные по ОСТ 92-1115-79
 
 class MaterialData {
-  final String name;
-  final String group; // 'steel', 'aluminum', 'copper'
-  final double kI; // Коэффициент для тока
-  final double kt; // Коэффициент для времени сварки
-  final double kF; // Коэффициент для усилия
-  final double minThickness; // Минимальная толщина, мм
-  final double maxThickness; // Максимальная толщина, мм
-  final double resistivity; // Удельное сопротивление, мкОм·м
-  final double thermalConductivity; // Теплопроводность, Вт/(м·К)
-  final bool requirePreheat; // Требуется ли подогрев
-  final bool requirePostHeat; // Требуется ли отпуск
-  final double defaultSlopeUp; // Рекомендуемое время нарастания тока, с
-  final double defaultSlopeDown; // Рекомендуемое время спада тока, с
+  /// Толщина детали, мм
+  final double thickness;
+
+  /// POWER, % — сварочный ток в процентах (табличное значение)
+  final double power;
+
+  /// WELD, имп — время сварки в импульсах (табличное значение)
+  final double weld;
+
+  /// tков, имп — время ковки в импульсах (табличное значение)
+  final double forgeTime;
 
   const MaterialData({
-    required this.name,
-    required this.group,
-    required this.kI,
-    required this.kt,
-    required this.kF,
-    required this.minThickness,
-    required this.maxThickness,
-    required this.resistivity,
-    required this.thermalConductivity,
-    this.requirePreheat = false,
-    this.requirePostHeat = false,
-    this.defaultSlopeUp = 0,
-    this.defaultSlopeDown = 0,
+    required this.thickness,
+    required this.power,
+    required this.weld,
+    required this.forgeTime,
   });
 }
 
+/// Репозиторий для доступа к справочным данным материалов
 class MaterialRepository {
-  static final Map<String, MaterialData> _materials = {
-    'АМг6': MaterialData(
-      name: 'АМг6',
-      group: 'aluminum',
-      kI: 12.0,
-      kt: 0.8,
-      kF: 2.5,
-      minThickness: 0.5,
-      maxThickness: 4.0,
-      resistivity: 0.058,
-      thermalConductivity: 120,
-      requirePreheat: true,
-      requirePostHeat: true,
-      defaultSlopeUp: 0.15,
-      defaultSlopeDown: 0.08,
+  static final List<MaterialData> _materials = [
+    const MaterialData(
+      thickness: 0.3,
+      power: 3.6,
+      weld: 1.5,
+      forgeTime: 0,
     ),
-  };
+    const MaterialData(
+      thickness: 0.5,
+      power: 6.0,
+      weld: 2.5,
+      forgeTime: 0,
+    ),
+    const MaterialData(
+      thickness: 0.8,
+      power: 9.1,
+      weld: 3.5,
+      forgeTime: 4.0,
+    ),
+    const MaterialData(
+      thickness: 1.0,
+      power: 14.2,
+      weld: 4.5,
+      forgeTime: 4.5,
+    ),
+    const MaterialData(
+      thickness: 1.5,
+      power: 19.7,
+      weld: 6.0,
+      forgeTime: 7.0,
+    ),
+    const MaterialData(
+      thickness: 2.0,
+      power: 27.9,
+      weld: 7.5,
+      forgeTime: 8.0,
+    ),
+    const MaterialData(
+      thickness: 2.5,
+      power: 37.6,
+      weld: 9.5,
+      forgeTime: 10.0,
+    ),
+    const MaterialData(
+      thickness: 3.0,
+      power: 43.6,
+      weld: 11.5,
+      forgeTime: 12.0,
+    ),
+  ];
 
-  static MaterialData? getMaterial(String name) {
-    return _materials[name];
+  /// Возвращает данные материала по толщине
+  static MaterialData? getMaterial(double thickness) {
+    try {
+      return _materials.firstWhere((m) => m.thickness == thickness);
+    } catch (_) {
+      return null;
+    }
   }
 
-  static List<String> getMaterialNames() {
-    return _materials.keys.toList();
+  /// Возвращает список всех доступных толщин
+  static List<double> getAvailableThicknesses() {
+    return _materials.map((m) => m.thickness).toList();
+  }
+
+  /// Возвращает список всех материалов
+  static List<MaterialData> getAllMaterials() {
+    return _materials;
   }
 }
