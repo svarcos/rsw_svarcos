@@ -132,8 +132,10 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Толщина верхней детали (меньшая), мм',
             value: _params.thicknessTop,
             onChanged: (val) {
+              // Округляем до одного знака после запятой
+              final rounded = (val * 10).round() / 10.0;
               setState(() {
-                final newVal = val.clamp(0.5, _params.thicknessBottom);
+                final newVal = rounded.clamp(0.3, _params.thicknessBottom);
                 _params = _params.copyWith(
                   thicknessTop: newVal,
                   thicknessBottom: _params.thicknessBottom,
@@ -141,7 +143,7 @@ class _MainScreenState extends State<MainScreen> {
                 _updateCyclogram();
               });
             },
-            min: 0.5,
+            min: 0.3,
             max: _params.thicknessBottom,
           ),
           const SizedBox(height: 8),
@@ -150,8 +152,10 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Толщина нижней детали (большая), мм',
             value: _params.thicknessBottom,
             onChanged: (val) {
+              // Округляем до одного знака после запятой
+              final rounded = (val * 10).round() / 10.0;
               setState(() {
-                final newVal = val.clamp(_params.thicknessTop, 3.0);
+                final newVal = rounded.clamp(_params.thicknessTop, 3.0);
                 _params = _params.copyWith(
                   thicknessBottom: newVal,
                   thicknessTop: _params.thicknessTop,
@@ -553,7 +557,9 @@ class _MainScreenState extends State<MainScreen> {
                   final normalized = text.replaceFirst(',', '.');
                   final newVal = double.tryParse(normalized);
                   if (newVal != null && newVal >= min && newVal <= max) {
-                    onChanged(newVal);
+                    // Округляем до одного знака после запятой
+                    final rounded = (newVal * 10).round() / 10.0;
+                    onChanged(rounded);
                   }
                 },
               ),
@@ -726,7 +732,9 @@ class _MainScreenState extends State<MainScreen> {
                       final normalized = text.replaceFirst(',', '.');
                       final newValue = double.tryParse(normalized);
                       if (newValue != null && newValue >= min && newValue <= max) {
-                        onChanged(newValue);
+                        // Округляем до одного знака после запятой
+                        final rounded = (newValue * 10).round() / 10.0;
+                        onChanged(rounded);
                       }
                     },
                   ),
@@ -963,9 +971,8 @@ class _MainScreenState extends State<MainScreen> {
     // Начало
     addCurrentPoint(0, 0);
 
-    // Скачок в начале: 0 → POWER (две точки с одинаковым временем)
+    // PRE-WELD (если есть)
     if (_params.preWeld > 0 && _params.prePower > 0) {
-      // PRE-WELD
       final preWeldStart = tSqueeze;
       final preWeldEnd = preWeldStart + _params.preWeld;
       
