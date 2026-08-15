@@ -135,7 +135,7 @@ class _MainScreenState extends State<MainScreen> {
               // Округляем до одного знака после запятой
               final rounded = (val * 10).round() / 10.0;
               setState(() {
-                final newVal = rounded.clamp(0.3, _params.thicknessBottom);
+                final newVal = rounded.clamp(0.5, _params.thicknessBottom);
                 _params = _params.copyWith(
                   thicknessTop: newVal,
                   thicknessBottom: _params.thicknessBottom,
@@ -143,7 +143,7 @@ class _MainScreenState extends State<MainScreen> {
                 _updateCyclogram();
               });
             },
-            min: 0.3,
+            min: 0.5,
             max: _params.thicknessBottom,
           ),
           const SizedBox(height: 8),
@@ -180,6 +180,7 @@ class _MainScreenState extends State<MainScreen> {
               try {
                 final useCase = CalculateParametersUseCase();
                 final result = useCase(
+                  material: _params.material,
                   thickness: _params.thicknessTop,
                   stroke: _params.stroke,
                 );
@@ -498,7 +499,7 @@ class _MainScreenState extends State<MainScreen> {
 
   // ---- ИСХОДНЫЕ ДАННЫЕ ----
   Widget _buildMaterialDropdown() {
-    final materials = ['АМг6', 'Сталь 20', 'Алюминий АД1'];
+    final materials = ['АМг6', 'Сталь 20', '12Х18Н10Т'];
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),

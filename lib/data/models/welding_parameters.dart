@@ -83,11 +83,11 @@ class WeldingParameters {
   final String material;
   
   // Толщина верхней детали (меньшая), мм
-  // Диапазон: 0.5 – 3.0
+  // Диапазон: 0.3 – 3.0
   final double thicknessTop;
   
   // Толщина нижней детали (большая), мм
-  // Диапазон: 0.5 – 3.0
+  // Диапазон: 0.3 – 3.0
   final double thicknessBottom;
   
   // Диаметр литого ядра (точки), мм
@@ -119,8 +119,8 @@ class WeldingParameters {
     required this.holdTime,
     required this.offTime,
     this.material = 'АМг6',
-    this.thicknessTop = 0.3,
-    this.thicknessBottom = 0.3,
+    this.thicknessTop = 1.5,
+    this.thicknessBottom = 1.5,
     this.nuggetDiameter = 3.5,
     this.stroke = 20.0,
   });
@@ -133,7 +133,7 @@ class WeldingParameters {
       forgeDelay: 1,
       forgePressure: 3.0,
       preWeld: 0.0,
-      prePower: 5,
+      prePower: 50,
       cold1: 0,
       slopeUp: 0,
       weld: 6.0,
