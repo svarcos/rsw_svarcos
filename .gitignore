@@ -1,0 +1,90 @@
+# ============================================================
+# .gitignore для Flutter проекта RSW svarcOS
+# ============================================================
+
+# -------------------- Flutter / Dart --------------------
+.dart_tool/
+.packages
+pubspec.lock
+pubspec.yaml.bak
+build/
+*.iml
+*.iws
+.idea/
+*.pid
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+
+# -------------------- Android --------------------
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/.classpath
+android/app/.project
+android/app/.settings/
+android/app/gradle/wrapper/gradle-wrapper.jar
+android/app/gradle/wrapper/gradle-wrapper.properties
+android/app/gradle/wrapper/gradle-wrapper.jar
+android/app/gradlew
+android/app/gradlew.bat
+android/app/build/
+android/app/proguard-rules.pro
+android/app/google-services.json
+android/app/src/main/res/values/google_maps_api.xml
+android/captures/
+android/externalNativeBuild/
+android/.cxx/
+
+# -------------------- iOS / macOS --------------------
+ios/.generated/
+ios/Pods/
+ios/Podfile.lock
+ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/GeneratedPluginRegistrant.m
+ios/Runner/GoogleService-Info.plist
+macos/Pods/
+macos/Podfile.lock
+macos/Runner/GeneratedPluginRegistrant.swift
+macos/Runner/GoogleService-Info.plist
+
+# -------------------- Web --------------------
+web/assets/
+web/index.html
+web/main.dart.js
+web/main.dart.js.map
+web/version.json
+web/favicon.png
+web/icons/
+
+# -------------------- Test --------------------
+build/test_cache/
+build/unit_test_assets/
+*.test.dart
+coverage/
+
+# -------------------- IDE / Editor --------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.log
+*.tmp
+
+# -------------------- Environment --------------------
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.cert
+
+# -------------------- Packages --------------------
+node_modules/
+packages/
+vendor/

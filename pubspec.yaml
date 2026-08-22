@@ -1,5 +1,5 @@
-name: sw_cyclograpp
-description: Приложение для построения циклограмм точечной сварки по параметрам Tecna TE550
+name: rsw_svarcos
+description: Приложение для расчёта параметров и построения циклограмм точечной сварки по параметрам Tecna TE550
 version: 1.1.0+1
 
 environment:

@@ -158,13 +158,13 @@
       "languageVersion": "2.14"
     },
     {
-      "name": "sw_cyclograpp",
+      "name": "rsw_svarcos",
       "rootUri": "../",
       "packageUri": "lib/",
       "languageVersion": "3.0"
     }
   ],
-  "generated": "2026-07-26T04:33:39.252100Z",
+  "generated": "2026-08-22T07:08:47.697503Z",
   "generator": "pub",
   "generatorVersion": "3.0.6"
 }

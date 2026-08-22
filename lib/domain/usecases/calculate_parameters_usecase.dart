@@ -1,7 +1,7 @@
 /// Модуль расчёта параметров точечной сварки для алюминиево-магниевых сплавов
 ///
 /// Выполняет расчёт всех параметров сварочного цикла на основе:
-/// - данных из MaterialRepository
+/// - интерполяции табличных данных из MaterialRepository
 /// - пользовательского ввода (материал, толщина, рабочий ход электродов)
 /// - формул пересчёта из таблицы 4
 ///
@@ -20,11 +20,13 @@ class CalculateParametersUseCase {
     required double thickness,
     required double stroke,
   }) {
-    // ---- 1. Получаем данные из репозитория ----
-    final (power, weld, forgeTime) = MaterialRepository.calculateForThickness(
-      material: material,
-      thickness: thickness,
-    );
+    // ---- 0. Проверка, что материал существует ----
+    if (!MaterialRepository.getAvailableMaterials().contains(material)) {
+      throw Exception('Материал "$material" не найден в справочнике');
+    }
+
+    // ---- 1. Получаем данные из репозитория (интерполяция) ----
+    final (power, weld, forgeTime) = MaterialRepository.interpolate(thickness);
 
     // ---- 2. Расчёт производных параметров по формулам ----
 
@@ -38,39 +40,17 @@ class CalculateParametersUseCase {
     final squeeze1 = stroke / MachineSpecs.electrodeVelocity +
         pressure / MachineSpecs.pressureRiseRate + 6;
 
-    // ---- РАСЧЁТ FORG.PRESS. И FORGE DELAY ----
     // FORG.PRESS. = 2 × PRESSURE (ограничение 6.0 бар)
-    // Если S < 0.8, то FORG.PRESS. = PRESSURE (ковка отключена, но давление сохраняется)
-    double forgePressure;
-    if (thickness < 0.8) {
-      forgePressure = pressure; // вместо 0.0
-    } else {
-      forgePressure = (2 * pressure).clamp(0.0, MachineSpecs.maxPressure);
-    }
+    final forgePressure = (2 * pressure).clamp(0.0, MachineSpecs.maxPressure);
 
     // FORGE DELAY = SLOPE UP + WELD + SLOPE DOWN − (FORG.PRESS. − PRESSURE) / pressureRiseRate
-    // Если S < 0.8, то FORGE DELAY = 0
-    // Иначе если значение < 1, то FORGE DELAY = 1
+    // Если значение < 0 — FORGE DELAY = 0
+    // SLOPE UP и SLOPE DOWN пока равны 0 (заглушка)
     final slopeUp = 0.0;
     final slopeDown = 0.0;
-    double forgeDelay;
-    if (thickness < 0.8) {
-      forgeDelay = 0.0;
-    } else {
-      forgeDelay = (slopeUp + weld + slopeDown - (forgePressure - pressure) / MachineSpecs.pressureRiseRate);
-      if (forgeDelay < 1) {
-        forgeDelay = 1;
-      }
-    }
+    final forgeDelay = (slopeUp + weld + slopeDown - (forgePressure - pressure) / MachineSpecs.pressureRiseRate)
+        .clamp(0.0, double.infinity);
 
-    // ---- ЛОГИКА: ЕСЛИ FORGE DELAY = 0, ТО FORG.PRESS. = PRESSURE ----
-    // Это соответствует поведению блока управления:
-    // если задержка равна 0, то проковка отключена, но давление остаётся PRESSURE
-    if (forgeDelay == 0) {
-      forgePressure = pressure;
-    }
-
-    // ---- ОСТАЛЬНЫЕ ПАРАМЕТРЫ ----
     // COLD 3 = 0,25 × tков
     final cold3 = 0.25 * forgeTime;
 
@@ -83,22 +63,40 @@ class CalculateParametersUseCase {
     // HOLD TIME = 0,75 × tков
     final holdTime = 0.75 * forgeTime;
 
-    // ---- 3. Возвращаем результат ----
+    // ---- 3. Округление до нужной точности ----
+    // Все временные параметры (импульсы) → математическое округление до целого
+    // Ток, давление, толщина → математическое округление до 1 знака после запятой
+    
+    // Округление до 1 знака (для power, pressure, forgePressure, postPower)
+    final powerRounded = (power * 10).roundToDouble() / 10;
+    final pressureRounded = (pressure * 10).roundToDouble() / 10;
+    final forgePressureRounded = (forgePressure * 10).roundToDouble() / 10;
+    final postPowerRounded = (postPower * 10).roundToDouble() / 10;
+
+    // Математическое округление до целых (для временных параметров)
+    final weldRounded = weld.roundToDouble();
+    final squeeze1Rounded = squeeze1.roundToDouble();
+    final forgeDelayRounded = forgeDelay.roundToDouble();
+    final cold3Rounded = cold3.roundToDouble();
+    final postWeldRounded = postWeld.roundToDouble();
+    final holdTimeRounded = holdTime.roundToDouble();
+
+    // ---- 4. Возвращаем результат ----
     return CalculatedParameters(
       thickness: thickness,
       stroke: stroke,
-      power: power,
-      weld: weld,
+      power: powerRounded,
+      weld: weldRounded,
       forgeTimeTable: forgeTime,
       nuggetDiameter: nuggetDiameter,
-      pressure: pressure,
-      squeeze1: squeeze1,
-      forgePressure: forgePressure,
-      forgeDelay: forgeDelay,
-      cold3: cold3,
-      postWeld: postWeld,
-      postPower: postPower,
-      holdTime: holdTime,
+      pressure: pressureRounded,
+      squeeze1: squeeze1Rounded,
+      forgePressure: forgePressureRounded,
+      forgeDelay: forgeDelayRounded,
+      cold3: cold3Rounded,
+      postWeld: postWeldRounded,
+      postPower: postPowerRounded,
+      holdTime: holdTimeRounded,
     );
   }
 }
