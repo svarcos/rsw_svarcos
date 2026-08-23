@@ -1,58 +1,37 @@
 /// Модель рассчитанных параметров сварочного цикла
-/// Содержит все параметры, необходимые для построения циклограммы
-/// и передачи данных из расчётного модуля в UI
-
+/// Используется для передачи данных из расчётного модуля в UI
 class CalculatedParameters {
   // ---- ИСХОДНЫЕ ДАННЫЕ ----
-  
-  /// Толщина детали, мм
-  final double thickness;
-  
-  /// Рабочий ход электродов, мм (вводится пользователем)
-  final double stroke;
-  
-  // ---- ТАБЛИЧНЫЕ ПАРАМЕТРЫ (из справочника) ----
-  
-  /// POWER, % — сварочный ток в процентах
-  final double power;
-  
-  /// WELD, имп — время сварки в импульсах
-  final double weld;
-  
-  /// tков, имп — время ковки в импульсах
-  final double forgeTimeTable;
-  
-  // ---- РАССЧИТАННЫЕ ПАРАМЕТРЫ ----
-  
-  /// Диаметр литого ядра, мм
-  final double nuggetDiameter;
-  
-  /// PRESSURE, бар — давление/усилие сжатия электродов
-  final double pressure;
-  
-  /// SQUEEZE 1, имп — время сжатия электродов
-  final double squeeze1;
-  
-  /// FORG.PRESS., бар — давление/усилие ковки
-  final double forgePressure;
-  
-  /// FORGE DELAY, имп — задержка включения давления/усилия ковки
-  final double forgeDelay;
-  
-  /// COLD 3, имп — пауза между сваркой и дополнительной операцией
-  final double cold3;
-  
-  /// POST-WELD, имп — время дополнительной операции после сварки
-  final double postWeld;
-  
-  /// POST-POWER, % — мощность/ток дополнительной операции после сварки
-  final double postPower;
-  
-  /// HOLD TIME, имп — время удержания усилия/давления ковки
-  final double holdTime;
+  final double thickness;          // Толщина детали, мм
+  final double stroke;             // Рабочий ход электродов, мм
 
-  // ---- КОНСТРУКТОР ----
-  
+  // ---- ТАБЛИЧНЫЕ ПАРАМЕТРЫ (АМг6) ----
+  final double power;              // POWER, %
+  final double weld;               // WELD, имп
+  final double forgeTimeTable;     // tForge, имп
+
+  // ---- РАССЧИТАННЫЕ ПАРАМЕТРЫ ----
+  final double nuggetDiameter;     // Диаметр литого ядра, мм
+  final double pressure;           // PRESSURE, бар
+  final double squeeze1;           // SQUEEZE 1, имп
+  final double forgePressure;      // FORG.PRESS., бар
+  final double forgeDelay;         // FORGE DELAY, имп
+  final double cold3;              // COLD 3, имп
+  final double postWeld;           // POST-WELD, имп
+  final double postPower;          // POST-POWER, %
+  final double holdTime;           // HOLD TIME, имп
+  final double offTime;            // OFF TIME, имп
+
+  // ---- ПАРАМЕТРЫ МНОГОИМПУЛЬСНОГО ЦИКЛА (пока не используются) ----
+  final double? preheatCurrent;    // PRE-POWER, %
+  final double? preheatTime;       // PRE-WELD, имп
+  final double? pause1;            // COLD 1, имп
+  final int? impulseCount;         // IMPULSE N.
+  final double? pause2;            // COLD 2, имп
+  final double? slopeUp;           // SLOPE UP, имп
+  final double? slopeDown;         // SLOPE DOWN, имп
+  final double cyclePause;         // OFF TIME, имп (дублируется)
+
   const CalculatedParameters({
     required this.thickness,
     required this.stroke,
@@ -68,47 +47,14 @@ class CalculatedParameters {
     required this.postWeld,
     required this.postPower,
     required this.holdTime,
+    required this.offTime,
+    this.preheatCurrent,
+    this.preheatTime,
+    this.pause1,
+    this.impulseCount,
+    this.pause2,
+    this.slopeUp,
+    this.slopeDown,
+    this.cyclePause = 0.5,
   });
-
-  // ---- ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ----
-  
-  /// Возвращает карту параметров для удобного отображения в UI
-  Map<String, dynamic> toMap() {
-    return {
-      'thickness': thickness,
-      'stroke': stroke,
-      'power': power,
-      'weld': weld,
-      'forgeTimeTable': forgeTimeTable,
-      'nuggetDiameter': nuggetDiameter,
-      'pressure': pressure,
-      'squeeze1': squeeze1,
-      'forgePressure': forgePressure,
-      'forgeDelay': forgeDelay,
-      'cold3': cold3,
-      'postWeld': postWeld,
-      'postPower': postPower,
-      'holdTime': holdTime,
-    };
-  }
-
-  @override
-  String toString() {
-    return 'CalculatedParameters(\n'
-        '  thickness: $thickness,\n'
-        '  stroke: $stroke,\n'
-        '  power: $power,\n'
-        '  weld: $weld,\n'
-        '  forgeTimeTable: $forgeTimeTable,\n'
-        '  nuggetDiameter: $nuggetDiameter,\n'
-        '  pressure: $pressure,\n'
-        '  squeeze1: $squeeze1,\n'
-        '  forgePressure: $forgePressure,\n'
-        '  forgeDelay: $forgeDelay,\n'
-        '  cold3: $cold3,\n'
-        '  postWeld: $postWeld,\n'
-        '  postPower: $postPower,\n'
-        '  holdTime: $holdTime,\n'
-        ')';
-  }
 }
