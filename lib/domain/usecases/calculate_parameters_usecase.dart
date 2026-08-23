@@ -1,8 +1,8 @@
 /// Модуль расчёта параметров точечной сварки для алюминиево-магниевых сплавов
 ///
 /// Выполняет расчёт всех параметров сварочного цикла на основе:
-/// - интерполяции табличных данных из MaterialRepository
-/// - пользовательского ввода (материал, толщина, рабочий ход электродов)
+/// - данных из MaterialRepository
+/// - пользовательского ввода (толщина, рабочий ход электродов)
 /// - формул пересчёта из таблицы 4
 ///
 /// Возвращает готовый объект CalculatedParameters.
@@ -14,24 +14,29 @@ import '../../data/datasources/machine_specs.dart';
 import '../../data/models/calculated_parameters.dart';
 
 class CalculateParametersUseCase {
-  /// Рассчитать параметры сварочного цикла для заданного материала, толщины и хода электродов
+  /// Рассчитать параметры сварочного цикла для заданной толщины и хода электродов
   CalculatedParameters call({
-    required String material,
     required double thickness,
     required double stroke,
   }) {
-    // ---- 0. Проверка, что материал существует ----
-    if (!MaterialRepository.getAvailableMaterials().contains(material)) {
-      throw Exception('Материал "$material" не найден в справочнике');
+    // ---- 0. ВАЛИДАЦИЯ ВХОДНЫХ ДАННЫХ ----
+    // Диапазон толщин: 0.5 – 3.0 мм
+    if (thickness < 0.5 || thickness > 3.0) {
+      throw Exception('Толщина должна быть в диапазоне 0.5–3.0 мм');
     }
 
-    // ---- 1. Получаем данные из репозитория (интерполяция) ----
+    // Диапазон рабочего хода: 5 – 150 мм
+    if (stroke < 5.0 || stroke > 150.0) {
+      throw Exception('Рабочий ход должен быть в диапазоне 5–150 мм');
+    }
+
+    // ---- 1. Получаем данные из репозитория ----
     final (power, weld, forgeTime) = MaterialRepository.interpolate(thickness);
 
     // ---- 2. Расчёт производных параметров по формулам ----
 
-    // Диаметр литого ядра
-    final nuggetDiameter = (3 * thickness + 2) * 0.9;
+    // Диаметр литого ядра (с округлением вверх до целого)
+    final nuggetDiameter = ((3 * thickness + 2) * 0.9).ceilToDouble();
 
     // PRESSURE = S (наименьшая толщина)
     final pressure = thickness;
@@ -51,8 +56,8 @@ class CalculateParametersUseCase {
     final forgeDelay = (slopeUp + weld + slopeDown - (forgePressure - pressure) / MachineSpecs.pressureRiseRate)
         .clamp(0.0, double.infinity);
 
-    // COLD 3 = 0,25 × tков
-    final cold3 = 0.25 * forgeTime;
+    // COLD 3 = 0,25 × tков (математическое округление)
+    final cold3 = (0.25 * forgeTime).roundToDouble();
 
     // POST-WELD = 0.8 × WELD (только если толщина >= 0.5)
     final postWeld = thickness >= 0.5 ? 0.8 * weld : 0.0;
@@ -60,43 +65,25 @@ class CalculateParametersUseCase {
     // POST-POWER = 0.45 × POWER (только если толщина >= 0.5)
     final postPower = thickness >= 0.5 ? 0.45 * power : 0.0;
 
-    // HOLD TIME = 0,75 × tков
-    final holdTime = 0.75 * forgeTime;
+    // HOLD TIME = 0,75 × tков (математическое округление)
+    final holdTime = (0.75 * forgeTime).roundToDouble();
 
-    // ---- 3. Округление до нужной точности ----
-    // Все временные параметры (импульсы) → математическое округление до целого
-    // Ток, давление, толщина → математическое округление до 1 знака после запятой
-    
-    // Округление до 1 знака (для power, pressure, forgePressure, postPower)
-    final powerRounded = (power * 10).roundToDouble() / 10;
-    final pressureRounded = (pressure * 10).roundToDouble() / 10;
-    final forgePressureRounded = (forgePressure * 10).roundToDouble() / 10;
-    final postPowerRounded = (postPower * 10).roundToDouble() / 10;
-
-    // Математическое округление до целых (для временных параметров)
-    final weldRounded = weld.roundToDouble();
-    final squeeze1Rounded = squeeze1.roundToDouble();
-    final forgeDelayRounded = forgeDelay.roundToDouble();
-    final cold3Rounded = cold3.roundToDouble();
-    final postWeldRounded = postWeld.roundToDouble();
-    final holdTimeRounded = holdTime.roundToDouble();
-
-    // ---- 4. Возвращаем результат ----
+    // ---- 3. Возвращаем результат ----
     return CalculatedParameters(
       thickness: thickness,
       stroke: stroke,
-      power: powerRounded,
-      weld: weldRounded,
+      power: power,
+      weld: weld,
       forgeTimeTable: forgeTime,
       nuggetDiameter: nuggetDiameter,
-      pressure: pressureRounded,
-      squeeze1: squeeze1Rounded,
-      forgePressure: forgePressureRounded,
-      forgeDelay: forgeDelayRounded,
-      cold3: cold3Rounded,
-      postWeld: postWeldRounded,
-      postPower: postPowerRounded,
-      holdTime: holdTimeRounded,
+      pressure: pressure,
+      squeeze1: squeeze1,
+      forgePressure: forgePressure,
+      forgeDelay: forgeDelay,
+      cold3: cold3,
+      postWeld: postWeld,
+      postPower: postPower,
+      holdTime: holdTime,
     );
   }
 }
