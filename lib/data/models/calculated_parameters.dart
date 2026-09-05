@@ -1,36 +1,28 @@
 /// Модель рассчитанных параметров сварочного цикла
-/// Используется для передачи данных из расчётного модуля в UI
 class CalculatedParameters {
-  // ---- ИСХОДНЫЕ ДАННЫЕ ----
-  final double thickness;          // Толщина детали, мм
-  final double stroke;             // Рабочий ход электродов, мм
+  final double thickness;
+  final double stroke;
+  final int power;
+  final double weld;
+  final double forgeTimeTable;
+  final double nuggetDiameter;
+  final double pressure;
+  final double squeeze1;
+  final double forgePressure;
+  final int forgeDelay;
+  final double cold3;
+  final double postWeld;
+  final int postPower;
+  final double holdTime;
+  final double offTime;
 
-  // ---- ТАБЛИЧНЫЕ ПАРАМЕТРЫ (АМг6) ----
-  final double power;              // POWER, %
-  final double weld;               // WELD, имп
-  final double forgeTimeTable;     // tForge, имп
-
-  // ---- РАССЧИТАННЫЕ ПАРАМЕТРЫ ----
-  final double nuggetDiameter;     // Диаметр литого ядра, мм
-  final double pressure;           // PRESSURE, бар
-  final double squeeze1;           // SQUEEZE 1, имп
-  final double forgePressure;      // FORG.PRESS., бар
-  final double forgeDelay;         // FORGE DELAY, имп
-  final double cold3;              // COLD 3, имп
-  final double postWeld;           // POST-WELD, имп
-  final double postPower;          // POST-POWER, %
-  final double holdTime;           // HOLD TIME, имп
-  final double offTime;            // OFF TIME, имп
-
-  // ---- ПАРАМЕТРЫ МНОГОИМПУЛЬСНОГО ЦИКЛА (пока не используются) ----
-  final double? preheatCurrent;    // PRE-POWER, %
-  final double? preheatTime;       // PRE-WELD, имп
-  final double? pause1;            // COLD 1, имп
-  final int? impulseCount;         // IMPULSE N.
-  final double? pause2;            // COLD 2, имп
-  final double? slopeUp;           // SLOPE UP, имп
-  final double? slopeDown;         // SLOPE DOWN, имп
-  final double cyclePause;         // OFF TIME, имп (дублируется)
+  // Дополнительные поля для циклограммы
+  final double preWeld;
+  final double cold1;
+  final double slopeUp;
+  final double slopeDown;
+  final double cold2;
+  final int impulseCount;
 
   const CalculatedParameters({
     required this.thickness,
@@ -48,13 +40,11 @@ class CalculatedParameters {
     required this.postPower,
     required this.holdTime,
     required this.offTime,
-    this.preheatCurrent,
-    this.preheatTime,
-    this.pause1,
-    this.impulseCount,
-    this.pause2,
-    this.slopeUp,
-    this.slopeDown,
-    this.cyclePause = 0.5,
+    this.preWeld = 0.0,
+    this.cold1 = 0.0,
+    this.slopeUp = 0.0,
+    this.slopeDown = 0.0,
+    this.cold2 = 0.0,
+    this.impulseCount = 1,
   });
 }

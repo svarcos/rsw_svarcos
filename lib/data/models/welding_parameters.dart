@@ -83,11 +83,11 @@ class WeldingParameters {
   final String material;
   
   // Толщина верхней детали (меньшая), мм
-  // Диапазон: 0.3 – 3.0
+  // Диапазон: 0.5 – 3.0
   final double thicknessTop;
   
   // Толщина нижней детали (большая), мм
-  // Диапазон: 0.3 – 3.0
+  // Диапазон: 0.5 – 3.0
   final double thicknessBottom;
   
   // Диаметр литого ядра (точки), мм
@@ -95,7 +95,7 @@ class WeldingParameters {
   final double nuggetDiameter;
 
   // Рабочий ход электродов, мм
-  // Диапазон: 5 – 50 мм, шаг 5 мм
+  // Диапазон: 5 – 150 мм, шаг 5 мм
   final double stroke;
 
   // ---- КОНСТРУКТОР ----
@@ -133,19 +133,19 @@ class WeldingParameters {
       forgeDelay: 1,
       forgePressure: 3.0,
       preWeld: 0.0,
-      prePower: 50,
+      prePower: 5,
       cold1: 0,
       slopeUp: 0,
       weld: 6.0,
-      power: 19,
+      power: 20,
       impulseN: 1,
       cold2: 0,
       slopeDown: 0,
       cold3: 2,
-      postWeld: 4.8,
+      postWeld: 5.0,
       postPower: 9,
       holdTime: 5.0,
-      offTime: 0.0,
+      offTime: 10.0,
       material: 'АМг6',
       thicknessTop: 1.5,
       thicknessBottom: 1.5,

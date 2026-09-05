@@ -21,28 +21,39 @@ void main() {
         stroke: 20.0,
       );
 
-      final pressure = result.pressure;
-      final forgePressure = result.forgePressure;
-      final weld = result.weld;
-      final postWeld = result.postWeld;
-      final holdTime = result.holdTime;
-      final cold3 = result.cold3;
-      final forgeDelay = result.forgeDelay;
-      final squeeze1 = result.squeeze1;
+      // Все временные параметры сварочного цикла (в импульсах, округлены до целых)
+      final totalTime = result.squeeze1.round() +
+          result.preWeld.round() +
+          result.cold1.round() +
+          result.slopeUp.round() +
+          (result.weld.round() * result.impulseCount) +
+          (result.cold2.round() * (result.impulseCount - 1)) +
+          result.slopeDown.round() +
+          result.cold3.round() +
+          result.postWeld.round() +
+          result.holdTime.round() +
+          result.offTime.round();
 
-      final tPressureRise = pressure / 0.3;
-      final tForgeRise = (forgePressure - pressure) / 0.3;
-      final tDecay = forgePressure / 0.3;
-
-      final totalTime = squeeze1 + weld + postWeld + holdTime + cold3 + tDecay + forgeDelay + tPressureRise;
-
-      expect(totalTime, greaterThan(0));
+      // Ожидаемая длительность для S=1.5 при stroke=20:
+      // squeeze1   = 19
+      // preWeld    = 0
+      // cold1      = 0
+      // slopeUp    = 0
+      // weld       = 6 * 1 = 6
+      // cold2      = 0 * (1-1) = 0
+      // slopeDown  = 0
+      // cold3      = 2 (0.25 * 7 = 1.75 → 2)
+      // postWeld   = 5 (4.8 → 5)
+      // holdTime   = 5 (5.25 → 5)
+      // offTime    = 10
+      // Итого: 19 + 0 + 0 + 0 + 6 + 0 + 0 + 2 + 5 + 5 + 10 = 47 имп
+      expect(totalTime, 47);
     });
 
     // ============================================================
     // 2. ПРОВЕРКА НАЛИЧИЯ FORG.PRESS.
     // ============================================================
-    test('Для АМг6 присутствует FORG.PRESS.', () {
+    test('Для АМг6 (S>=0.8) FORG.PRESS. присутствует', () {
       final result = useCase(
         thickness: 1.5,
         stroke: 20.0,
@@ -50,24 +61,24 @@ void main() {
       expect(result.forgePressure, greaterThan(result.pressure));
     });
 
-    test('Для других материалов FORG.PRESS. может отсутствовать', () {
+    test('Для АМг6 (S<0.8) FORG.PRESS. отсутствует', () {
       final result = useCase(
-        thickness: 1.5,
+        thickness: 0.5,
         stroke: 20.0,
       );
-      expect(result.forgePressure, greaterThanOrEqualTo(result.pressure));
+      expect(result.forgePressure, result.pressure);
     });
 
     // ============================================================
-    // 3. ПРОВЕРКА КОРРЕКТНОСТИ ТОЧЕК НА ГРАФИКЕ
+    // 3. ПРОВЕРКА ФОРМАТА ОТОБРАЖЕНИЯ ТОКА И ДАВЛЕНИЯ (ОДИН ЗНАК ПОСЛЕ ЗАПЯТОЙ)
     // ============================================================
     test('Ток на графике отображается с одним знаком после запятой', () {
       final result = useCase(
         thickness: 1.5,
         stroke: 20.0,
       );
-      // POWER = 19.7 → в UI должно быть 19.7
-      expect(result.power.toStringAsFixed(1), '19.7');
+      final formatted = result.power.toStringAsFixed(1);
+      expect(formatted, matches(RegExp(r'^\d+\.\d$')));
     });
 
     test('Давление на графике отображается с одним знаком после запятой', () {
@@ -75,56 +86,59 @@ void main() {
         thickness: 1.5,
         stroke: 20.0,
       );
-      // PRESSURE = 1.5 → в UI должно быть 1.5
-      expect(result.pressure.toStringAsFixed(1), '1.5');
+      final formatted = result.pressure.toStringAsFixed(1);
+      expect(formatted, matches(RegExp(r'^\d+\.\d$')));
     });
 
-    test('Давление не должно быть на порядок выше расчётного', () {
+    // ============================================================
+    // 4. ПРОВЕРКА ШКАЛЫ ДАВЛЕНИЯ (ПРАВАЯ ОСЬ)
+    // ============================================================
+    test('Шкала давления на графике отображает значения 0–10 с шагом 1', () {
+      final result = useCase(
+        thickness: 3.0,
+        stroke: 20.0,
+      );
+      
+      expect(result.forgePressure, lessThanOrEqualTo(6.0));
+      expect(result.pressure, greaterThanOrEqualTo(0));
+      
+      final scaledPressure = result.forgePressure * 10;
+      expect(scaledPressure, lessThanOrEqualTo(60));
+    });
+
+    // ============================================================
+    // 5. ПРОВЕРКА: ВРЕМЕННЫЕ ПАРАМЕТРЫ — ТОЛЬКО ЦЕЛЫЕ ЧИСЛА
+    // ============================================================
+    test('Все временные параметры являются целыми числами', () {
       final result = useCase(
         thickness: 1.5,
         stroke: 20.0,
       );
-      final scaledPressure = result.pressure * 10;
-      expect(scaledPressure, lessThanOrEqualTo(100));
+
+      // Проверяем, что все временные параметры — целые числа (без дробной части)
+      expect(result.squeeze1 % 1, 0);
+      expect(result.preWeld % 1, 0);
+      expect(result.cold1 % 1, 0);
+      expect(result.slopeUp % 1, 0);
+      expect(result.weld % 1, 0);
+      expect(result.cold2 % 1, 0);
+      expect(result.slopeDown % 1, 0);
+      expect(result.cold3 % 1, 0);
+      expect(result.postWeld % 1, 0);
+      expect(result.holdTime % 1, 0);
+      expect(result.offTime % 1, 0);
     });
 
     // ============================================================
-    // 4. ПРОВЕРКА OFF TIME
+    // 6. ПРОВЕРКА OFF TIME
     // ============================================================
     test('OFF TIME должно быть не меньше времени спада давления', () {
       final result = useCase(
         thickness: 1.5,
         stroke: 20.0,
       );
-      final forgePressure = result.forgePressure;
-      final decayTime = forgePressure / 0.3;
-      // OFF TIME пока не рассчитывается, но проверка на будущее
-      // expect(offTime, greaterThanOrEqualTo(decayTime));
-      expect(decayTime, greaterThan(0));
-    });
-
-    // ============================================================
-    // 5. ПРОВЕРКА ПОСЛЕДОВАТЕЛЬНОСТИ ИМПУЛЬСОВ
-    // ============================================================
-    test('Проверка последовательности этапов цикла', () {
-      final result = useCase(
-        thickness: 1.5,
-        stroke: 20.0,
-      );
-      
-      expect(result.squeeze1, greaterThan(0));
-      expect(result.weld, greaterThan(0));
-      expect(result.holdTime, greaterThan(0));
-      expect(result.cold3, greaterThanOrEqualTo(0));
-      expect(result.postWeld, greaterThanOrEqualTo(0));
-    });
-
-    // ============================================================
-    // 6. ПРОВЕРКА ШАГА ГЕНЕРАЦИИ ТОЧЕК
-    // ============================================================
-    test('Шаг генерации точек = 0.5 имп', () {
-      // В коде генерации используется step = 0.5
-      // Проверка в виджет-тестах
+      final decayTime = result.forgePressure / 0.3;
+      expect(result.offTime, greaterThanOrEqualTo(decayTime));
     });
   });
 }

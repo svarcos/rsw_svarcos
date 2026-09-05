@@ -34,14 +34,23 @@ class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  MainScreenState createState() => MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class MainScreenState extends State<MainScreen> {
   // ==================== СОСТОЯНИЕ ====================
   late WeldingParameters _params;
   Map<String, List<FlSpot>> _cyclogramData = {};
   int _selectedTab = 0;
+
+  // ==================== КОНТРОЛЛЕРЫ ДЛЯ ТЕКСТОВЫХ ПОЛЕЙ ====================
+  final Map<String, TextEditingController> _controllers = {};
+  final Map<String, FocusNode> _focusNodes = {};
+
+  // ==================== СОСТОЯНИЕ ОШИБОК ====================
+  String? _thicknessTopError;
+  String? _thicknessBottomError;
+  String? _strokeError;
 
   // ==================== ЖИЗНЕННЫЙ ЦИКЛ ====================
   @override
@@ -49,6 +58,33 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _params = WeldingParameters.defaults();
     _updateCyclogram();
+    _initControllers();
+  }
+
+  void _initControllers() {
+    _controllers['thicknessTop'] = TextEditingController(
+      text: _params.thicknessTop.toStringAsFixed(1).replaceFirst('.', ','),
+    );
+    _controllers['thicknessBottom'] = TextEditingController(
+      text: _params.thicknessBottom.toStringAsFixed(1).replaceFirst('.', ','),
+    );
+    _controllers['stroke'] = TextEditingController(
+      text: _params.stroke.toInt().toString(),
+    );
+    _focusNodes['thicknessTop'] = FocusNode();
+    _focusNodes['thicknessBottom'] = FocusNode();
+    _focusNodes['stroke'] = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    for (var node in _focusNodes.values) {
+      node.dispose();
+    }
+    super.dispose();
   }
 
   void _updateCyclogram() {
@@ -57,27 +93,48 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  void _updateControllerText(String key, String text) {
+    if (_controllers[key]?.text != text) {
+      _controllers[key]?.text = text;
+    }
+  }
+
   // ==================== ДЕЙСТВИЯ ====================
   void _resetParameters() {
     setState(() {
       _params = WeldingParameters.defaults();
+      _thicknessTopError = null;
+      _thicknessBottomError = null;
+      _strokeError = null;
+      _updateControllerText('thicknessTop', _params.thicknessTop.toStringAsFixed(1).replaceFirst('.', ','));
+      _updateControllerText('thicknessBottom', _params.thicknessBottom.toStringAsFixed(1).replaceFirst('.', ','));
+      _updateControllerText('stroke', _params.stroke.toInt().toString());
       _updateCyclogram();
     });
   }
 
   void _applyCalculatedParameters(CalculatedParameters result) {
     setState(() {
+      final postPower = result.postPower ?? 5;
+
+      // Рассчитываем минимальное offTime для текущей толщины
+      final maxPressure = result.forgePressure > result.pressure 
+          ? result.forgePressure 
+          : result.pressure;
+      final minOffTime = (maxPressure / 0.3).ceilToDouble();
+
       _params = _params.copyWith(
-        power: result.power.toInt().clamp(5, 99),
-        weld: result.weld.clamp(0.5, 99.5),
+        power: result.power.round().clamp(5, 99),
+        weld: result.weld.roundToDouble().clamp(0.5, 99.5),
         pressure: result.pressure.clamp(0.5, 10.0),
-        squeeze1: result.squeeze1.clamp(0.5, 99.5),
+        squeeze1: result.squeeze1.roundToDouble().clamp(0.5, 99.5),
         forgePressure: result.forgePressure.clamp(0, 10.0),
-        forgeDelay: result.forgeDelay.toInt().clamp(0, 99),
-        cold3: result.cold3.toInt().clamp(0, 50),
-        postWeld: result.postWeld.clamp(0, 99.5),
-        postPower: result.postPower.toInt().clamp(5, 99),
-        holdTime: result.holdTime.clamp(0.5, 99.5),
+        forgeDelay: result.forgeDelay.clamp(0, 99),
+        cold3: result.cold3.round().clamp(0, 50),
+        postWeld: result.postWeld.roundToDouble().clamp(0, 99.5),
+        postPower: postPower,
+        holdTime: result.holdTime.roundToDouble().clamp(0.5, 99.5),
+        offTime: minOffTime,  // Устанавливаем offTime равным минимуму
       );
       
       _updateCyclogram();
@@ -120,6 +177,14 @@ class _MainScreenState extends State<MainScreen> {
 
   // ==================== ЭКРАН ПАРАМЕТРОВ ====================
   Widget _buildParameterInput() {
+    final hasErrors = _thicknessTopError != null || _thicknessBottomError != null || _strokeError != null;
+
+    // ---- МИНИМАЛЬНОЕ ЗНАЧЕНИЕ OFF TIME = максимальное давление / 0.3 ----
+    final maxPressure = _params.forgePressure > _params.pressure 
+        ? _params.forgePressure 
+        : _params.pressure;
+    final minOffTime = (maxPressure / 0.3).ceilToDouble();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -128,47 +193,121 @@ class _MainScreenState extends State<MainScreen> {
           _buildMaterialDropdown(),
           const SizedBox(height: 16),
 
-          _buildThicknessField(
-            label: 'Толщина верхней детали (меньшая), мм',
+          _buildCompactParameterField(
+            label: 'Толщина верхней детали, мм',
             value: _params.thicknessTop,
+            min: 0.5,
+            max: _params.thicknessBottom,
             onChanged: (val) {
-              // Округляем до одного знака после запятой
-              final rounded = (val * 10).round() / 10.0;
               setState(() {
+                final rounded = (val * 10).round() / 10.0;
                 final newVal = rounded.clamp(0.5, _params.thicknessBottom);
                 _params = _params.copyWith(
                   thicknessTop: newVal,
                   thicknessBottom: _params.thicknessBottom,
                 );
+                _thicknessTopError = null;
+                _updateControllerText('thicknessTop', newVal.toStringAsFixed(1).replaceFirst('.', ','));
                 _updateCyclogram();
               });
             },
-            min: 0.5,
-            max: _params.thicknessBottom,
+            controller: _controllers['thicknessTop']!,
+            errorText: _thicknessTopError,
+            onValidate: (text) {
+              final normalized = text.replaceFirst(',', '.');
+              final newVal = double.tryParse(normalized);
+              if (newVal == null) {
+                setState(() => _thicknessTopError = 'Введите число');
+                return false;
+              }
+              if (newVal < 0.5) {
+                setState(() => _thicknessTopError = 'Минимум 0.5 мм');
+                return false;
+              }
+              if (newVal > _params.thicknessBottom) {
+                setState(() => _thicknessTopError = 'Не может быть больше нижней толщины');
+                return false;
+              }
+              return true;
+            },
           ),
           const SizedBox(height: 8),
 
-          _buildThicknessField(
-            label: 'Толщина нижней детали (большая), мм',
+          _buildCompactParameterField(
+            label: 'Толщина нижней детали, мм',
             value: _params.thicknessBottom,
+            min: _params.thicknessTop,
+            max: 3.0,
             onChanged: (val) {
-              // Округляем до одного знака после запятой
-              final rounded = (val * 10).round() / 10.0;
               setState(() {
+                final rounded = (val * 10).round() / 10.0;
                 final newVal = rounded.clamp(_params.thicknessTop, 3.0);
                 _params = _params.copyWith(
                   thicknessBottom: newVal,
                   thicknessTop: _params.thicknessTop,
                 );
+                _thicknessBottomError = null;
+                _updateControllerText('thicknessBottom', newVal.toStringAsFixed(1).replaceFirst('.', ','));
                 _updateCyclogram();
               });
             },
-            min: _params.thicknessTop,
-            max: 3.0,
+            controller: _controllers['thicknessBottom']!,
+            errorText: _thicknessBottomError,
+            onValidate: (text) {
+              final normalized = text.replaceFirst(',', '.');
+              final newVal = double.tryParse(normalized);
+              if (newVal == null) {
+                setState(() => _thicknessBottomError = 'Введите число');
+                return false;
+              }
+              if (newVal < _params.thicknessTop) {
+                setState(() => _thicknessBottomError = 'Не может быть меньше верхней толщины');
+                return false;
+              }
+              if (newVal > 3.0) {
+                setState(() => _thicknessBottomError = 'Максимум 3.0 мм');
+                return false;
+              }
+              return true;
+            },
           ),
           const SizedBox(height: 8),
 
-          _buildStrokeField(),
+          _buildCompactParameterField(
+            label: 'Рабочий ход электродов, мм',
+            value: _params.stroke,
+            min: 5.0,
+            max: 150.0,
+            step: 5.0,
+            onChanged: (val) {
+              setState(() {
+                final stepped = (val / 5.0).roundToDouble() * 5.0;
+                _params = _params.copyWith(stroke: stepped);
+                _strokeError = null;
+                _updateControllerText('stroke', stepped.toInt().toString());
+                _updateCyclogram();
+              });
+            },
+            controller: _controllers['stroke']!,
+            errorText: _strokeError,
+            onValidate: (text) {
+              final newVal = double.tryParse(text);
+              if (newVal == null) {
+                setState(() => _strokeError = 'Введите число');
+                return false;
+              }
+              if (newVal < 5.0) {
+                setState(() => _strokeError = 'Минимум 5 мм');
+                return false;
+              }
+              if (newVal > 150.0) {
+                setState(() => _strokeError = 'Максимум 150 мм');
+                return false;
+              }
+              return true;
+            },
+            isInt: true,
+          ),
           const SizedBox(height: 8),
 
           _buildNuggetField(),
@@ -176,39 +315,41 @@ class _MainScreenState extends State<MainScreen> {
 
           // ---- КНОПКА РАССЧИТАТЬ ----
           ElevatedButton(
-            onPressed: () {
-              try {
-                final useCase = CalculateParametersUseCase();
-                final result = useCase(
-                  material: _params.material,
-                  thickness: _params.thicknessTop,
-                  stroke: _params.stroke,
-                );
-                _applyCalculatedParameters(result);
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ Параметры рассчитаны и применены'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('❌ Ошибка: $e'),
-                    duration: Duration(seconds: 3),
-                  ),
-                );
-              }
-            },
+            key: const Key('calculate_button'),
+            onPressed: hasErrors
+                ? null
+                : () {
+                    try {
+                      final useCase = CalculateParametersUseCase();
+                      final result = useCase(
+                        thickness: _params.thicknessTop,
+                        stroke: _params.stroke,
+                      );
+                      _applyCalculatedParameters(result);
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('✅ Параметры рассчитаны и применены'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('❌ Ошибка: $e'),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green.shade700,
+              backgroundColor: hasErrors ? Colors.grey : Colors.green.shade700,
               padding: const EdgeInsets.symmetric(vertical: 16),
               minimumSize: const Size(double.infinity, 50),
             ),
-            child: const Text(
-              'Рассчитать',
-              style: TextStyle(fontSize: 16, color: Colors.white),
+            child: Text(
+              hasErrors ? 'Исправьте ошибки' : 'Рассчитать',
+              style: TextStyle(fontSize: 16, color: hasErrors ? Colors.black54 : Colors.white),
             ),
           ),
           const SizedBox(height: 16),
@@ -248,6 +389,7 @@ class _MainScreenState extends State<MainScreen> {
             },
             0.5,
             10.0,
+            inputKey: const Key('pressure_field_input'),
           ),
           const SizedBox(height: 16),
 
@@ -484,11 +626,13 @@ class _MainScreenState extends State<MainScreen> {
             _params.offTime,
             (val) {
               setState(() {
-                _params = _params.copyWith(offTime: val);
+                final rounded = val.roundToDouble();
+                final clamped = rounded.clamp(minOffTime, 99.5);
+                _params = _params.copyWith(offTime: clamped);
                 _updateCyclogram();
               });
             },
-            0,
+            minOffTime,
             99.5,
           ),
           const SizedBox(height: 24),
@@ -499,11 +643,12 @@ class _MainScreenState extends State<MainScreen> {
 
   // ---- ИСХОДНЫЕ ДАННЫЕ ----
   Widget _buildMaterialDropdown() {
-    final materials = ['АМг6', 'Сталь 20', '12Х18Н10Т'];
+    final materials = ['АМг6'];
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: DropdownButtonFormField<String>(
+          key: const Key('material_dropdown'),
           decoration: const InputDecoration(
             labelText: 'Материал',
             border: OutlineInputBorder(),
@@ -523,121 +668,94 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildThicknessField({
+  Widget _buildCompactParameterField({
     required String label,
     required double value,
-    required Function(double) onChanged,
     required double min,
     required double max,
+    required Function(double) onChanged,
+    required TextEditingController controller,
+    String? errorText,
+    bool Function(String)? onValidate,
+    double step = 0.1,
+    bool isInt = false,
   }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 16),
-            SizedBox(
-              width: 80,
-              child: TextField(
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.all(4),
-                ),
-                controller: TextEditingController(
-                  text: value.toStringAsFixed(1).replaceFirst('.', ','),
-                ),
-                onChanged: (text) {
-                  final normalized = text.replaceFirst(',', '.');
-                  final newVal = double.tryParse(normalized);
-                  if (newVal != null && newVal >= min && newVal <= max) {
-                    // Округляем до одного знака после запятой
-                    final rounded = (newVal * 10).round() / 10.0;
-                    onChanged(rounded);
-                  }
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Slider(
-                value: value,
-                min: min,
-                max: max,
-                divisions: 50,
-                onChanged: onChanged,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStrokeField() {
-    final value = _params.stroke;
-    const minValue = 5.0;
-    const maxValue = 50.0;
-    const step = 5.0;
+    final displayValue = isInt 
+        ? value.toInt().toString() 
+        : value.toStringAsFixed(1).replaceFirst('.', ',');
+    
+    if (controller.text != displayValue && !controller.selection.isValid) {
+      controller.text = displayValue;
+    }
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(
-              child: Text(
-                'Рабочий ход электродов, мм',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 16),
-            SizedBox(
-              width: 80,
-              child: TextField(
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.all(4),
+            Row(
+              children: [
+                // Окошко слева
+                SizedBox(
+                  width: 60,
+                  child: TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.all(4),
+                    ),
+                    onChanged: (text) {
+                      if (onValidate != null) {
+                        final isValid = onValidate(text);
+                        if (!isValid) return;
+                      }
+                      final normalized = text.replaceFirst(',', '.');
+                      final newVal = double.tryParse(normalized);
+                      if (newVal != null) {
+                        if (isInt) {
+                          final stepped = (newVal / step).roundToDouble() * step;
+                          onChanged(stepped);
+                        } else {
+                          final rounded = (newVal * 10).round() / 10.0;
+                          onChanged(rounded);
+                        }
+                      }
+                    },
+                  ),
                 ),
-                controller: TextEditingController(
-                  text: value.toInt().toString(),
+                const SizedBox(width: 12),
+                // Подпись сверху и ползунок
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (errorText != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            errorText,
+                            style: const TextStyle(color: Colors.red, fontSize: 11),
+                          ),
+                        ),
+                      Slider(
+                        value: value.clamp(min, max),
+                        min: min,
+                        max: max,
+                        divisions: isInt ? ((max - min) / step).toInt() : 100,
+                        onChanged: onChanged,
+                      ),
+                    ],
+                  ),
                 ),
-                onChanged: (text) {
-                  final newVal = double.tryParse(text);
-                  if (newVal != null && newVal >= minValue && newVal <= maxValue) {
-                    final stepped = (newVal / step).roundToDouble() * step;
-                    setState(() {
-                      _params = _params.copyWith(stroke: stepped);
-                      _updateCyclogram();
-                    });
-                  }
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Slider(
-                value: value,
-                min: minValue,
-                max: maxValue,
-                divisions: ((maxValue - minValue) / step).toInt(),
-                onChanged: (val) {
-                  final stepped = (val / step).roundToDouble() * step;
-                  setState(() {
-                    _params = _params.copyWith(stroke: stepped);
-                    _updateCyclogram();
-                  });
-                },
-              ),
+              ],
             ),
           ],
         ),
@@ -653,16 +771,17 @@ class _MainScreenState extends State<MainScreen> {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            const Expanded(
+            const Flexible(
               child: Text(
                 'Диаметр точки, мм',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 8),
             Text(
               calculated.toStringAsFixed(0),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -679,7 +798,17 @@ class _MainScreenState extends State<MainScreen> {
     double min,
     double max, {
     String subtitle = '',
+    Key? inputKey,
   }) {
+    // Форматируем значение: ток и давление с одним знаком после запятой,
+    // остальные параметры (время, импульсы) — целые числа
+    final bool isCurrentOrPressure = code == 'POWER' || code == 'POST-POWER' || 
+                                     code == 'PRESSURE' || code == 'FORG.PRESS.' ||
+                                     code == 'PRE-POWER';
+    final String formattedValue = isCurrentOrPressure 
+        ? value.toStringAsFixed(1).replaceFirst('.', ',') 
+        : value.round().toString();
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -689,22 +818,36 @@ class _MainScreenState extends State<MainScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(code, style: const TextStyle(fontSize: 12)),
+                  child: Text(
+                    code,
+                    style: const TextStyle(fontSize: 9),
+                  ),
                 ),
               ],
             ),
             if (subtitle.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Expanded(
@@ -712,14 +855,15 @@ class _MainScreenState extends State<MainScreen> {
                     value: value,
                     min: min,
                     max: max,
-                    divisions: 100,
+                    divisions: isCurrentOrPressure ? 1000 : 100,
                     onChanged: onChanged,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 6),
                 SizedBox(
-                  width: 60,
+                  width: 50,
                   child: TextField(
+                    key: inputKey,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
                     decoration: const InputDecoration(
@@ -727,15 +871,19 @@ class _MainScreenState extends State<MainScreen> {
                       contentPadding: EdgeInsets.all(4),
                     ),
                     controller: TextEditingController(
-                      text: value.toStringAsFixed(1).replaceFirst('.', ','),
+                      text: formattedValue,
                     ),
                     onChanged: (text) {
                       final normalized = text.replaceFirst(',', '.');
                       final newValue = double.tryParse(normalized);
                       if (newValue != null && newValue >= min && newValue <= max) {
-                        // Округляем до одного знака после запятой
-                        final rounded = (newValue * 10).round() / 10.0;
-                        onChanged(rounded);
+                        if (isCurrentOrPressure) {
+                          final rounded = (newValue * 10).round() / 10.0;
+                          onChanged(rounded);
+                        } else {
+                          final rounded = newValue.roundToDouble();
+                          onChanged(rounded);
+                        }
                       }
                     },
                   ),
@@ -766,7 +914,7 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
 
-    // Масштабирование давления для правой шкалы (0–10 бар → 0–100)
+    // Масштабирование давления для правой шкалы (0–6 бар → 0–100)
     final scaledForceSpots = forceSpots.map((s) => FlSpot(s.x, s.y * 10)).toList();
 
     return Scaffold(
@@ -807,7 +955,7 @@ class _MainScreenState extends State<MainScreen> {
                         reservedSize: 40,
                         interval: 10,
                         getTitlesWidget: (value, meta) {
-                          return Text('${value.toInt()}%');
+                          return Text(value.toStringAsFixed(0));
                         },
                       ),
                     ),
@@ -817,7 +965,7 @@ class _MainScreenState extends State<MainScreen> {
                         reservedSize: 40,
                         interval: 10,
                         getTitlesWidget: (value, meta) {
-                          final barValue = (value / 100 * 10).roundToDouble();
+                          final barValue = (value / 10).roundToDouble();
                           return Text(barValue.toStringAsFixed(0));
                         },
                       ),
@@ -859,11 +1007,11 @@ class _MainScreenState extends State<MainScreen> {
                       dotData: FlDotData(show: false),
                     ),
                   ],
+                  lineTouchData: const LineTouchData(enabled: false),
                 ),
               ),
             ),
           ),
-          // Легенда
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -902,32 +1050,24 @@ class _MainScreenState extends State<MainScreen> {
 
   // ==================== РАСЧЁТ ОБЩЕГО ВРЕМЕНИ ЦИКЛА ====================
   double _calculateTotalCycleTime() {
-    final pressureValue = _params.pressure;
-    final forgePressureValue = _params.forgePressure;
-    final squeeze1 = _params.squeeze1;
-    final isForgeActive = (_params.forgeDelay > 0 && _params.forgePressure > 0);
-    
-    double weldEndTime = squeeze1;
-    if (_params.preWeld > 0) weldEndTime += _params.preWeld + _params.cold1;
-    weldEndTime += _params.slopeUp;
-    for (int i = 0; i < _params.impulseN; i++) {
-      weldEndTime += _params.weld;
-      if (i < _params.impulseN - 1) weldEndTime += _params.cold2;
-    }
-    weldEndTime += _params.slopeDown + _params.cold3;
-    if (_params.postWeld > 0) weldEndTime += _params.postWeld;
-    
-    final holdEndTime = weldEndTime + _params.holdTime;
-    
-    double pressureEndTime;
-    if (!isForgeActive) {
-      pressureEndTime = holdEndTime + pressureValue;
-    } else {
-      pressureEndTime = holdEndTime + forgePressureValue;
-    }
-    
-    pressureEndTime += _params.offTime;
-    return pressureEndTime;
+    final maxPressure = _params.forgePressure > _params.pressure 
+        ? _params.forgePressure 
+        : _params.pressure;
+    final decayTime = maxPressure / 0.3;
+
+    // Базовая длительность цикла без учёта offTime
+    double baseTime = _params.squeeze1 +
+        _params.weld +
+        _params.cold3 +
+        _params.postWeld +
+        _params.holdTime +
+        _params.slopeUp +
+        _params.slopeDown;
+
+    // Эффективное offTime — всегда >= времени спада
+    final effectiveOffTime = _params.offTime < decayTime ? decayTime : _params.offTime;
+
+    return baseTime + effectiveOffTime;
   }
 
   // ==================== ГЕНЕРАЦИЯ ЦИКЛОГРАММЫ ====================
@@ -943,7 +1083,6 @@ class _MainScreenState extends State<MainScreen> {
     final pRate = MachineSpecs.pressureRiseRate;
     final vElectrode = MachineSpecs.electrodeVelocity;
 
-    // ---- 1. ВСПОМОГАТЕЛЬНЫЕ ВРЕМЕННЫЕ ТОЧКИ ----
     final tTouch = _params.stroke / vElectrode;
     final tPressureRise = pressureValue / pRate;
     final tSqueeze = squeeze1;
@@ -960,32 +1099,41 @@ class _MainScreenState extends State<MainScreen> {
     final tForgeStart = squeeze1 + _params.forgeDelay;
     final tForgeEnd = tForgeStart + tForgeRise;
     final tHoldStart = tPostWeldEnd;
-    final tHoldEnd = tHoldStart + _params.holdTime;
+    final holdTime = _params.holdTime > 0 ? _params.holdTime : 1.0;
+    final tHoldEnd = tHoldStart + holdTime;
     final tDecayEnd = tHoldEnd + tDecay;
-    final totalTime = tDecayEnd + _params.offTime;
 
-    // ---- 2. ГЕНЕРАЦИЯ ТОЧЕК ТОКА ----
+    // Расчёт времени спада давления
+    final maxPressure = _params.forgePressure > _params.pressure 
+        ? _params.forgePressure 
+        : _params.pressure;
+    final decayTime = maxPressure / 0.3;
+
+    // Эффективное offTime — всегда >= времени спада
+    final effectiveOffTime = _params.offTime < decayTime ? decayTime : _params.offTime;
+    // Дополнительная пауза (горизонтальный отрезок) — только если offTime > decayTime
+    final extraPause = _params.offTime - decayTime;
+    // Если offTime меньше или равно decayTime — extraPause = 0, отрезка нет
+    final totalTime = tDecayEnd + extraPause;
+
     void addCurrentPoint(double time, double value) {
       currentSpots.add(FlSpot(time, value));
     }
 
-    // Начало
+    // ---- ФОРМИРОВАНИЕ ТОКА ----
+    // Точка старта
     addCurrentPoint(0, 0);
 
-    // PRE-WELD (если есть)
     if (_params.preWeld > 0 && _params.prePower > 0) {
       final preWeldStart = tSqueeze;
       final preWeldEnd = preWeldStart + _params.preWeld;
-      
-      // Начало PRE-WELD: 0 → PRE-POWER
+
       addCurrentPoint(preWeldStart, 0);
       addCurrentPoint(preWeldStart, _params.prePower.toDouble());
-      
-      // Конец PRE-WELD: PRE-POWER → 0
+
       addCurrentPoint(preWeldEnd, _params.prePower.toDouble());
       addCurrentPoint(preWeldEnd, 0);
-      
-      // COLD 1
+
       final cold1Start = preWeldEnd;
       final cold1End = cold1Start + _params.cold1;
       if (_params.cold1 > 0) {
@@ -994,84 +1142,79 @@ class _MainScreenState extends State<MainScreen> {
       }
     }
 
-    // Начало WELD: 0 → POWER
     addCurrentPoint(tWeldStart, 0);
     addCurrentPoint(tWeldStart, _params.power.toDouble());
 
-    // Конец WELD: POWER → 0
     addCurrentPoint(tWeldEnd, _params.power.toDouble());
     addCurrentPoint(tWeldEnd, 0);
 
-    // COLD 3
     final cold3Start = tWeldEnd;
     final cold3End = cold3Start + _params.cold3;
     addCurrentPoint(cold3Start, 0);
     addCurrentPoint(cold3End, 0);
 
-    // POST-WELD (если есть)
     if (_params.postWeld > 0 && _params.postPower > 0) {
-      // Начало POST-WELD: 0 → POST-POWER
       addCurrentPoint(tPostWeldStart, 0);
       addCurrentPoint(tPostWeldStart, _params.postPower.toDouble());
-      
-      // Конец POST-WELD: POST-POWER → 0
+
       addCurrentPoint(tPostWeldEnd, _params.postPower.toDouble());
       addCurrentPoint(tPostWeldEnd, 0);
     }
 
-    // Остальные точки (ток уже 0)
     addCurrentPoint(tHoldStart, 0);
     addCurrentPoint(tHoldEnd, 0);
     addCurrentPoint(tDecayEnd, 0);
     addCurrentPoint(totalTime, 0);
 
-    // ---- 3. ГЕНЕРАЦИЯ ТОЧЕК ДАВЛЕНИЯ ----
+    // ---- ФОРМИРОВАНИЕ УСИЛИЯ ----
     void addForcePoint(double time, double value) {
       forceSpots.add(FlSpot(time, value));
     }
 
     addForcePoint(0, 0);
 
-    // Подъём давления от 0 до PRESSURE
     final steps = 10;
     for (int i = 0; i <= steps; i++) {
       final fraction = i / steps;
       final t = tTouch + tPressureRise * fraction;
-      final value = pressureValue * fraction;
-      addForcePoint(t, value);
+      final rawValue = pressureValue * fraction;
+      addForcePoint(t, rawValue);
     }
     addForcePoint(tSqueeze, pressureValue);
 
     if (!isForgeActive) {
-      // Без ковки
+      // Спад давления от PRESSURE до 0
       addForcePoint(tHoldStart, pressureValue);
+      addForcePoint(tHoldEnd, pressureValue);
       for (int i = 0; i <= steps; i++) {
         final fraction = i / steps;
-        final t = tHoldStart + tDecay * fraction;
-        final value = pressureValue * (1 - fraction);
-        addForcePoint(t, value);
+        final t = tHoldEnd + tDecay * fraction;
+        final rawValue = pressureValue * (1 - fraction);
+        addForcePoint(t, rawValue);
       }
       addForcePoint(tDecayEnd, 0);
     } else {
-      // С ковкой
+      // Рост до FORG.PRESS., затем спад до 0
       addForcePoint(tForgeStart, pressureValue);
       for (int i = 0; i <= steps; i++) {
         final fraction = i / steps;
         final t = tForgeStart + tForgeRise * fraction;
-        final value = pressureValue + (forgePressureValue - pressureValue) * fraction;
-        addForcePoint(t, value);
+        final rawValue = pressureValue + (forgePressureValue - pressureValue) * fraction;
+        addForcePoint(t, rawValue);
       }
       addForcePoint(tForgeEnd, forgePressureValue);
       addForcePoint(tHoldStart, forgePressureValue);
+      addForcePoint(tHoldEnd, forgePressureValue);
       for (int i = 0; i <= steps; i++) {
         final fraction = i / steps;
-        final t = tHoldStart + tDecay * fraction;
-        final value = forgePressureValue * (1 - fraction);
-        addForcePoint(t, value);
+        final t = tHoldEnd + tDecay * fraction;
+        final rawValue = forgePressureValue * (1 - fraction);
+        addForcePoint(t, rawValue);
       }
       addForcePoint(tDecayEnd, 0);
     }
 
+    // Если extraPause > 0 — добавляем горизонтальный отрезок
     addForcePoint(totalTime, 0);
 
     return {

@@ -33,33 +33,51 @@ class CalculateParametersUseCase {
 
     // ---- 2. Расчёт производных параметров по формулам ----
 
+    // Диаметр литого ядра (информационный параметр)
     final nuggetDiameter = ((3 * thickness + 2) * 0.9).ceilToDouble();
 
+    // PRESSURE = S (наименьшая толщина)
     final pressure = thickness;
 
+    // SQUEEZE 1 = d / electrodeVelocity + PRESSURE / pressureRiseRate + 6
     final squeeze1 = stroke / MachineSpecs.electrodeVelocity +
         pressure / MachineSpecs.pressureRiseRate + 6;
 
-    final forgePressure = (2 * pressure).clamp(0.0, MachineSpecs.maxPressure);
+    // FORG.PRESS. = 2 × PRESSURE (ограничение 6.0 бар)
+    final forgePressure = thickness < 0.8
+        ? pressure
+        : (2 * pressure).clamp(0.0, MachineSpecs.maxPressure);
 
+    // FORGE DELAY = SLOPE UP + WELD + SLOPE DOWN − (FORG.PRESS. − PRESSURE) / pressureRiseRate
+    // Если значение < 0 — FORGE DELAY = 0
+    // Округляем до ближайшего целого (циклы)
     final slopeUp = 0.0;
     final slopeDown = 0.0;
     final forgeDelay = (slopeUp + weld + slopeDown - (forgePressure - pressure) / MachineSpecs.pressureRiseRate)
-        .clamp(0.0, double.infinity);
+        .clamp(0.0, double.infinity)
+        .round();
 
+    // COLD 3 = 0.25 × tков (округляем до ближайшего целого)
     final cold3 = (0.25 * forgeTime).roundToDouble();
 
-    final postWeld = thickness >= 0.5 ? 0.8 * weld : 0.0;
+    // POST-WELD = 0.8 × WELD (только если толщина >= 0.5, что всегда верно)
+    final postWeld = 0.8 * weld;
 
-    final postPower = thickness >= 0.5 ? 0.45 * power : 0.0;
+    // POST-POWER = 0.45 × POWER (округление до целого, диапазон 5–99)
+    final postPower = (0.45 * power).round().clamp(5, 99);
 
+    // HOLD TIME = 0.75 × tков (округляем до ближайшего целого)
     final holdTime = (0.75 * forgeTime).roundToDouble();
 
-    // ---- 3. РАСЧЁТ OFF TIME ----
-    // OFF TIME = время спада давления (FORG.PRESS. / 0.3), но не менее 0.5 имп
-    // Если ковка отсутствует (FORG.PRESS. == PRESSURE), используем PRESSURE / 0.3
-    final decayTime = forgePressure / MachineSpecs.pressureRiseRate;
-    final offTime = decayTime.clamp(0.5, double.infinity);
+    // ---- 3. OFF TIME (минимальное допустимое значение) ----
+    // OFF TIME — это пауза между циклами, устанавливается оператором вручную.
+    // Но она не может быть меньше времени спада давления.
+    // Время спада давления:
+    // - если есть FORG.PRESS. → FORG.PRESS. / 0.3
+    // - если нет FORG.PRESS. → PRESSURE / 0.3
+    // Округляем до целого числа (ceil), чтобы гарантировать, что offTime >= времени спада.
+    final decayPressure = thickness >= 0.8 ? forgePressure : pressure;
+    final offTime = (decayPressure / MachineSpecs.pressureRiseRate).ceilToDouble();
 
     // ---- 4. ВАЛИДАЦИЯ РАССЧИТАННЫХ ПАРАМЕТРОВ ----
     // Проверка: FORG.PRESS. не должен быть меньше PRESSURE
@@ -67,28 +85,37 @@ class CalculateParametersUseCase {
       throw Exception('FORG.PRESS. не может быть меньше PRESSURE');
     }
 
-    // Проверка: OFF TIME не должен быть меньше времени спада давления
-    if (offTime < decayTime) {
-      throw Exception('OFF TIME не может быть меньше времени спада давления');
-    }
+    // ---- 5. ПРИВЕДЕНИЕ К ТИПАМ И ОГРАНИЧЕНИЕ ДИАПАЗОНОВ ----
+    // Все параметры приводятся к нужному типу и ограничиваются допустимыми диапазонами
+    final clampedPower = power.round().clamp(5, 99);
+    final clampedWeld = weld.clamp(0.5, 99.5);
+    final clampedPressure = pressure.clamp(0.5, 10.0);
+    final clampedSqueeze1 = squeeze1.clamp(0.5, 99.5);
+    final clampedForgePressure = forgePressure.clamp(0.0, 10.0);
+    final clampedCold3 = cold3.clamp(0.0, 50.0);
+    final clampedPostWeld = postWeld.clamp(0.0, 99.5);
+    final clampedHoldTime = holdTime.clamp(0.5, 99.5);
+    final clampedOffTime = offTime.clamp(0.0, 99.5);
+    final clampedForgeDelay = forgeDelay.clamp(0, 99);
+    final clampedPostPower = postPower.clamp(5, 99);
 
-    // ---- 5. Возвращаем результат ----
+    // ---- 6. Возвращаем результат ----
     return CalculatedParameters(
       thickness: thickness,
       stroke: stroke,
-      power: power,
-      weld: weld,
+      power: clampedPower,
+      weld: clampedWeld,
       forgeTimeTable: forgeTime,
       nuggetDiameter: nuggetDiameter,
-      pressure: pressure,
-      squeeze1: squeeze1,
-      forgePressure: forgePressure,
-      forgeDelay: forgeDelay,
-      cold3: cold3,
-      postWeld: postWeld,
-      postPower: postPower,
-      holdTime: holdTime,
-      offTime: offTime,
+      pressure: clampedPressure,
+      squeeze1: clampedSqueeze1,
+      forgePressure: clampedForgePressure,
+      forgeDelay: clampedForgeDelay,
+      cold3: clampedCold3,
+      postWeld: clampedPostWeld,
+      postPower: clampedPostPower,
+      holdTime: clampedHoldTime,
+      offTime: clampedOffTime,
     );
   }
 }
