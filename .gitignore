@@ -1,0 +1,70 @@
+# -------------------- Flutter / Dart --------------------
+.dart_tool/
+.packages
+pubspec.lock
+pubspec.yaml.bak
+build/
+*.iml
+*.iws
+.idea/
+*.pid
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+
+# -------------------- Android --------------------
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/build/
+android/app/gradle/wrapper/gradle-wrapper.jar
+android/app/gradle/wrapper/gradle-wrapper.properties
+
+# -------------------- iOS / macOS --------------------
+ios/Pods/
+ios/Podfile.lock
+ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/GeneratedPluginRegistrant.m
+macos/Pods/
+macos/Podfile.lock
+
+# -------------------- Web --------------------
+web/assets/
+web/index.html
+web/main.dart.js
+web/main.dart.js.map
+web/version.json
+web/favicon.png
+web/icons/
+
+# -------------------- Test --------------------
+build/test_cache/
+build/unit_test_assets/
+*.test.dart
+coverage/
+
+# -------------------- IDE / Editor --------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.log
+*.tmp
+
+# -------------------- Environment --------------------
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.cert
+
+# -------------------- Packages --------------------
+node_modules/
+packages/
+vendor/
