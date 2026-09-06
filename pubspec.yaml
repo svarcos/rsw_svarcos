@@ -1,0 +1,25 @@
+name: rsw_svarcos
+description: Приложение для расчёта параметров и построения циклограмм точечной сварки по параметрам Tecna TE550
+version: 1.1.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Библиотека для построения графиков
+  # Используется для визуализации циклограммы (ток и усилие)
+  fl_chart: ^0.63.0
+  
+  # Стандартные иконки Material Design
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
